@@ -211,6 +211,9 @@ struct slot_fills {
   std::vector<std::vector<parse>> values;
   // For a slot of type `type`.
   std::vector<std::optional<value_kind>> types;
+  // A truth value's phrase read with `is not` or `isn't` for its `is`
+  // (`word is not empty`): the reading is `not` of it.
+  bool negated = false;
 };
 
 // The parse a template gives with these fills, if their types fit.

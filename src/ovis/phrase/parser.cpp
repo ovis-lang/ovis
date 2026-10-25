@@ -1633,6 +1633,26 @@ struct line_parser::state {
       // And an article the pattern asks for may be left out.
       else if (is_article_word(element.word))
         next(p_position);
+      // `word is not empty`, `n isn't even`: a truth value's phrase said the
+      // other way round, once in a reading (`add_phrases` keeps it only
+      // when no phrase reads the words as they are: `x is not 5`).
+      if (element.word == "is" && !p_fills.negated && p_position < p_end &&
+          p_template.kind == phrase_template::kind_type::expression &&
+          p_template.result && p_template.result->list_depth == 0 &&
+          p_template.result->kind == type_name::kind_type::builtin &&
+          p_template.result->name == "bool") {
+        std::size_t after = 0;
+        if (tokens[p_position].is_word("isn't"))
+          after = p_position + 1;
+        else if (tokens[p_position].is_word("is") && p_position + 1 < p_end &&
+                 tokens[p_position + 1].is_word("not"))
+          after = p_position + 2;
+        if (after != 0) {
+          p_fills.negated = true;
+          next(after);
+          p_fills.negated = false;
+        }
+      }
       break;
     case pattern_element::kind_type::optional:
       if (const auto after = match_words(element.branches[0], p_position, p_end))
@@ -1720,6 +1740,7 @@ struct line_parser::state {
   auto add_phrases(phrase_template::kind_type p_kind, bool p_block,
                    std::size_t p_begin, std::size_t p_end,
                    std::vector<parse> &p_results) {
+    std::vector<parse> negated;
     for (const auto &item : words.templates) {
       if (!words.sees(item.package))
         continue;
@@ -1734,10 +1755,26 @@ struct line_parser::state {
         std::vector<slot_fills> complete;
         match(item, pattern, 0, p_begin, p_end, fills, complete);
         for (const auto &found : complete)
-          if (auto built = build_phrase(item, item.patterns[0], found, words))
-            p_results.push_back(std::move(*built));
+          if (auto built = build_phrase(item, item.patterns[0], found, words)) {
+            if (!found.negated) {
+              p_results.push_back(std::move(*built));
+              continue;
+            }
+            built->core = "(not " + built->core + ")";
+            built->reading = "not (" + built->reading + ")";
+            built->level = not_level;
+            built->open_edge = false;
+            negated.push_back(std::move(*built));
+          }
       }
     }
+    // A phrase with `not` in its own words (`x is not 5`, `p is not
+    // nothing`) is what the line says; `not` of another is for words no
+    // phrase has.
+    if (std::ranges::none_of(p_results, [](const parse &p_parse) {
+          return p_parse.type.base == "bool" && p_parse.type.depth == 0;
+        }))
+      std::ranges::move(negated, std::back_inserter(p_results));
   }
 
   // Readings that read the same can't be told apart by the author, so the

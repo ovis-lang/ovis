@@ -900,7 +900,54 @@ public:
         changed = bind(generic[index], given[index], p_bound) || changed;
       return changed;
     }
+    if (p_generic.is_phrase() && p_given.is_phrase()) {
+      const auto generic = read_signature(p_generic);
+      const auto given = read_signature(p_given);
+      if (!generic || !given ||
+          generic->parameters.size() != given->parameters.size())
+        return false;
+      bool changed = false;
+      for (std::size_t index = 0; index < generic->parameters.size(); ++index)
+        changed = bind(generic->parameters[index], given->parameters[index],
+                       p_bound) || changed;
+      return bind(generic->result, given->result, p_bound) || changed;
+    }
     return false;
+  }
+
+  // A phrase given where a generic takes one of its type variables' values
+  // (`(phrase ((var item)) (var result))`, the library's `where` and
+  // `applied to each`): the variables go into the phrase's parameters and
+  // come out of its result. A phrase named there (`double _`) is joined by
+  // its slots, so its untyped parameters learn from the list; one held in
+  // a variable, by its type once that is known.
+  auto bind_phrase(slot_id p_given, const value_type &p_generic,
+                   const std::map<string_type, slot_id> &p_bound) -> void {
+    const auto signature = read_signature(p_generic);
+    if (!signature)
+      return;
+    waits.push_back([this, p_given, signature = *signature, bound = p_bound,
+                     done = false]() mutable {
+      if (done)
+        return false;
+      for (const auto &value : phrase_values) {
+        if (find(value.slot) != find(p_given) ||
+            value.parameters.size() != signature.parameters.size())
+          continue;
+        done = true;
+        for (std::size_t index = 0; index < value.parameters.size(); ++index)
+          flow(instantiate(signature.parameters[index], bound),
+               value.parameters[index]);
+        flow(value.result, instantiate(signature.result, bound));
+        return true;
+      }
+      const auto given = resolve(p_given);
+      if (!given.is_phrase())
+        return false;
+      done = true;
+      return bind(phrase_type(signature.parameters, signature.result), given,
+                  bound) || true;
+    });
   }
 
   // Whether a type is known all through (no `?` in a list or record).
@@ -1550,6 +1597,8 @@ class elaborator {
         types.flow(arguments[index], type.has_variables()
                                          ? types.instantiate(type, waiting.bound)
                                          : callee.parameters[index]);
+        if (type.is_phrase() && type.has_variables())
+          types.bind_phrase(arguments[index], type, waiting.bound);
       }
       types.wait([this, &waiting] { return settle_result(waiting, false); });
       return waiting.result;

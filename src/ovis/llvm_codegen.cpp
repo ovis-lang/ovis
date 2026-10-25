@@ -111,6 +111,9 @@ class generator {
   llvm::GlobalVariable *line_global = nullptr;
   const std::vector<std::size_t> *current_lines = nullptr;
   std::size_t current_line = 0;
+  // In a checked build's function without source lines (the prelude's):
+  // the line it was called from.
+  llvm::Value *entry_line = nullptr;
   llvm::Function *current_function = nullptr;
   value_type current_return_type;
   bool in_main = false;
@@ -1329,6 +1332,7 @@ class generator {
              : type_of(signature.result),
         parameters, false);
     auto *const result = builder.CreateCall(type, callee, values);
+    restore_line();
     if (signature.result == value_type::nothing())
       return nullptr;
     return is_c ? from_c(result, signature.c_result) : result;
@@ -1827,8 +1831,7 @@ class generator {
                               arguments[index].type,
                               declaration.parameters[index].type));
     auto *const result = builder.CreateCall(callee, values);
-    // The callee set the line to its own; this statement is still running.
-    store_line(current_line);
+    restore_line();
     return result;
   }
 
@@ -2462,6 +2465,17 @@ class generator {
       builder.CreateStore(builder.getInt64(p_line), line_global);
   }
 
+  // After a call: the callee set the line to its own, and this statement is
+  // still running. A function without source lines (the prelude's) puts
+  // back the line it was called from (`the first item of xs where _ is
+  // even` fails on the program's line, not the phrase's).
+  auto restore_line() -> void {
+    if (current_line != 0)
+      store_line(current_line);
+    else if (entry_line != nullptr)
+      builder.CreateStore(entry_line, line_global);
+  }
+
   auto generate(const statement &p_statement) -> void {
     using kind = statement::kind_type;
     if (checked && current_lines != nullptr &&
@@ -2897,6 +2911,9 @@ class generator {
         current_return_type = function.return_type;
         builder.SetInsertPoint(
             llvm::BasicBlock::Create(context, "entry", current_function));
+        entry_line = checked && line_global != nullptr && unit.source_lines.empty()
+                         ? builder.CreateLoad(builder.getInt64Ty(), line_global)
+                         : nullptr;
         scopes.emplace_back();
         for (std::size_t index = 0; index < function.parameters.size();
              ++index) {
@@ -2909,6 +2926,7 @@ class generator {
         for (const auto &statement : function.body)
           generate(statement);
         finish_function();
+        entry_line = nullptr;
         frames.pop_back();
         scopes.pop_back();
       }

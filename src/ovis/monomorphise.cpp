@@ -132,6 +132,22 @@ auto match_type(const value_type &p_generic, const value_type &p_given,
         return false;
     return true;
   }
+  // A phrase of type variables' values: the given one's parameters and
+  // result.
+  if (p_generic.is_phrase()) {
+    if (!p_given.is_phrase())
+      return false;
+    const auto generic = read_signature(p_generic);
+    const auto given = read_signature(p_given);
+    if (!generic || !given ||
+        generic->parameters.size() != given->parameters.size())
+      return false;
+    for (std::size_t index = 0; index < generic->parameters.size(); ++index)
+      if (!match_type(generic->parameters[index], given->parameters[index],
+                      p_bindings))
+        return false;
+    return match_type(generic->result, given->result, p_bindings);
+  }
   // A pointer to a type variable's values: what the given one points at.
   if (p_generic.is_typed_pointer() && p_given.is_typed_pointer()) {
     const auto generic = read_sexprs(p_generic.pointee);

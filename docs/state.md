@@ -1,9 +1,9 @@
 # Project state
 
-Last updated: 2026-10-25 (L5, the model's sure pick first in `ovis manual`; L4 with EmbeddingGemma; L6, `ovis manual --html`; R1, version 0.1.0; L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
+Last updated: 2026-10-25 (phrases given phrases: filter, map, find, reduce; no prompt in the terminal; `is not` for any truth value's phrase; `at the end` in a loop frees per pass; L5, the model's sure pick first in `ovis manual`; L4 with EmbeddingGemma; L6, `ovis manual --html`; R1, version 0.1.0; L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
 release packages and ovisup)
-(branch `claude/eloquent-curie-bbpub4`).
-Last dreamed: 2026-10-25 at 45455c9 (the manual's L7 rest, L9, L10 and R1 history, edit candidates and rewrites measured archived).
+(branch `claude/festive-mccarthy-hiv3q6`).
+Last dreamed: 2026-10-25 at b68e55d (the manual's L4–L6 history and its measurements archived).
 [dream/state](dream/state/INDEX.md).
 
 Ovis is a compiler whose source code is plain English: lines of phrases,
@@ -18,7 +18,8 @@ readings only where a line is unclear. The design is in
 | --- | --- |
 | Phrase front end: lines, blocks, phrases, `to …:` phrases, calls | Built, tested (front end, functions, programs) |
 | Phrase files read at run time: `phrases/` beside a folder program's `main.ovis`, or `--phrases DIR` (`.phr`, `.core`, `.generic`); `ovis check-phrases PROGRAM` | Built, tested (`program_test`, `fix_test`) |
-| Phrase library (171 templates, prelude, generic functions) | Built; every template run by a test program |
+| Phrase library (188 templates, prelude, generic functions) | Built; every template run by a test program |
+| Phrases given a phrase (`lists.phr`): filter, map, find, position, count, any/all/none, reduce, sort using, call on each, keep / remove where; a phrase value's types bind a generic's variables | Built, tested (`phrase_library.txt`) |
 | Numbers of a size and bits ([proposals/numbers.md](proposals/numbers.md), N1–N7): `int8`…`uint64`, `float32`, `byte`, `short`, `16-bit whole number` as types anywhere; arithmetic at the size, overflow and narrowing checked; `as`, `wrapped to`, `clamped to`, `wrapping`, `clamped`; bits, bytes, hex/binary literals and output; sized record fields, `a header has, packed:`; lists and map values of a size | Built, tested (`number_test`, `phrase_library.txt`, `examples/bits.ovis`, `examples/hash.ovis`); measured with 3B (`eval/programs/checksum.ovis`) |
 | `at the end` / `defer` (D1–D3): `(defer …)` in Ovis Core, copied to every exit of its block; the surface forms with the `@[note: …]` sigil | Built, tested (`defer_test`, `examples/notes.ovis`, `eval/programs/tidy.ovis`) |
 | Built-in traits: slot types `showable`, `comparable`, `equatable`, `T:trait`; a record implements one with `to (a: book) comes before (b: book):`, `is the same as`, `text of`, or `a book is comparable:` (equatable, showable); `nothing` only in `T or nothing` and C records, read after a check (narrowing); lists of records with `text of` show as `[a, b]` | Built, tested (`record_phrase_test`, `phrase_library.txt`); static dispatch |
@@ -41,7 +42,7 @@ readings only where a line is unclear. The design is in
 
 ## Verified
 
-- `./build/test_ovis`: 256 test cases (253 pass, 3 skipped) and 3544 assertions pass. Three cases are skipped unless
+- `./build/test_ovis`: 256 test cases (253 pass, 3 skipped) and 3628 assertions pass. Three cases are skipped unless
   `OVIS_TEST_MODEL` is set. The C-library cases skip themselves when
   libclang, zlib or SQLite headers are missing. The `[docs]` case keeps the
   tracking documents under 500 lines and checks their links.
@@ -236,67 +237,10 @@ in names`) is the same before the numbers work. The CI floors still hold (questi
 
 ## Manual measured
 
-`ovis_eval manual eval/manual-queries.txt` (34 queries far from the
-phrases' words), 4 CPUs, 2026-10-25: where the entry meant comes, first /
-in the first 5, and the time a query once the entries are cached (each
-model embeds the 171 once, in 1–20 s).
-
-| Embeddings | Joined, words 3× | Alone | Per query |
-| --- | --- | --- | --- |
-| None (the words) | 13 / 21 | — | — |
-| 3B (Qwen2.5-Coder, last token; L4) | 13 / 21 | — | 0.5 s |
-| bge-small-en-v1.5 (37 MB) | 17 / 22 | 18 / 24 | 56 ms |
-| nomic-embed-text-v1.5 (146 MB) | 16 / 23 | 15 / 26 | 0.2 s |
-| EmbeddingGemma-300M (334 MB) | 19 / 24 | 23 / 33 | 50 ms |
-| Qwen3-Embedding-0.6B (639 MB) | 18 / 24 | 24 / 31 | ~0.2 s |
-
-Each with the prefixes its authors give (Qwen3 an instruction).
-EmbeddingGemma joined with the words counting 0.25 or 0.5: **25 / 33**
-(46 ms); at 1, 19 / 31. A model made for search reaches what the words
-miss (`trimmed`, `reversed`, `rounded down`, `a copy of`, `in hex`); 3B's
-vectors did not. So the words now count half and `ovis manual` uses
-EmbeddingGemma when it is pulled. The weight was picked on these 34
-queries.
-
-Held out (`eval/manual-held-out.txt`, 30 queries written after the weight
-was chosen, about entries the first set doesn't cover), first / in the
-first 5, no prefixes but EmbeddingGemma's:
-
-| Embeddings | Joined, words ½ | Alone |
-| --- | --- | --- |
-| None (the words) | 1 / 10 | — |
-| bge-small-en-v1.5 | 10 / 19 | 13 / 20 |
-| nomic-embed-text-v1.5 | 9 / 21 | 12 / 21 |
-| EmbeddingGemma-300M | 12 / 24 (words ¼: 13 / 24; 1: 10 / 19; 3: 5 / 15) | 15 / 24 |
-| Qwen3-Embedding-0.6B | 15 / 24 | 19 / 25 |
-
-So embeddings hold up far from the words, and the weight was partly fitted:
-here the words cost 3 firsts, on the first set they gave 2. It stays ½
-(over both sets ½ gives 37 of 64 first, ¼ and alone 38): not tuned on
-these. Qwen3 reads better but is twice the size (639 MB) and ~0.2 s a
-query on 4 CPUs once cached (EmbeddingGemma ~60 ms; the first search
-embeds the 171 entries, 20 s against 6 s). Each model drops another's
-vectors from the cache file (one size to a file). Decided (owner,
-2026-10-25): EmbeddingGemma ships; Qwen3 is the switch if its licence or
-reading matters more than 3× the time.
-
-L5, the chat model choosing among the first 5 (`ovis_eval manual
---choose-model`, 3B on 4 CPUs, after EmbeddingGemma joined with the words),
-first / in the first 5:
-
-| | 34 queries | Held out (30) |
-| --- | --- | --- |
-| The search (EmbeddingGemma and words) | 25 / 33 | 12 / 24 |
-| Its pick always first | 21 / 33 | 12 / 24 |
-| Its pick first only when sure (60%, 30 points ahead) | **28 / 33** | **16 / 24** |
-
-3B is seldom sure (most picks 25–50%), and its unsure picks undo the
-search's right firsts as often as they fix them. Its sure picks (7 of 64,
-64–90%) were all right and none moved a right first entry down: `in
-capitals`, `average of`, `as text`, `squared`, `last item of`, `remove
-item`, `number of entries in`. "None" was likeliest once. ~2.9 s a query
-once loaded (the daemon keeps it; ~6 s with the start). So `ovis manual`
-asks the model when there is one and moves only a sure pick.
+EmbeddingGemma joined with the words (½) finds the entry meant first for 25
+of 34 queries (words alone 13) and 12 of 30 held out; the chat model's sure
+pick moved first makes that 28 and 16. Tables and runs:
+[dream/state](dream/state/INDEX.md).
 
 ## Not verified / known gaps
 
@@ -374,6 +318,7 @@ asks the model when there is one and moves only a sure pick.
 | 2026-10-21 | **Packages** ([proposals/packages.md](proposals/packages.md)), every recommendation: a package is a git repository, versions `vX.Y.Z` tags, the URL its name; minimal version selection, one version per major line (0.x: per minor); lines coexist as separate packages with distinct types; one version of a C library per program; the orphan rule for impls, the root included; only direct dependencies' phrases in scope, `NAME's phrase` to say which; dependencies built `--locked`, as source with a Core cache; exported unless under `internal/`. |
 | 2026-10-21 | **Phrases in sight** ([proposals/phrase-scope.md](proposals/phrase-scope.md)), every recommendation: the ranking shortcut takes a reading adding at most one content word; a file sees a package's phrases only with `use NAME`; a dependency's phrase is offered only when it shares a word with the span; nested `internal/` folders scope a program's (and a package's) phrases to their parent folder; a near-100 sweep in CI. |
 | 2026-10-25 | **The manual's embedding model**: EmbeddingGemma-300M (`ovis model pull embedding`), the best measured for its time and size, under the Gemma terms; Qwen3-Embedding-0.6B (Apache 2.0) reads a held-out set better (19 of 30 first alone, against 15) but takes 3× the time a query and twice the room. The words count half. |
+| 2026-10-25 | **No prompt in the terminal** (owner): what the model couldn't settle, a menu of readings won't settle soundly; unclear lines are reported, and the author writes `@[meaning: …]` (or `ovis fix --line`). |
 | 2026-10-23 | **Manual and editor** ([proposals/manual-and-editor.md](proposals/manual-and-editor.md)), every recommendation: the model orders real manual entries and never writes an explanation; the library's documentation is `about:`/`example:` lines in the `.phr` files, checked by tests; the program's, packages' and C's own words are documented by their comments and their uses; in the editor the model's reading is a hint with a quick fix, and only a build writes sigils by itself; no completion while typing; a line is checked when the cursor leaves it or Enter ends it. |
 
 ## Lessons learned
@@ -415,8 +360,7 @@ asks the model when there is one and moves only a sure pick.
 
 | Commit | Summary |
 | --- | --- |
-| (P2) | **L5, the model choosing in `ovis manual`**: `manual_choice_probabilities` asks the chat model (one `choose`) which of the first 5 entries found (pattern and `about`) does what the query asks, or "none of these"; `manual_choose` moves its pick first only when sure (60%, 30 points ahead), else the order stands; `ovis manual` uses it with the daemon's model when there are words, not `--offline` or `--html`. `ovis_eval manual --choose-model FILE` measures it: first 28 of 34 against 25, held out 16 of 30 against 12, no right first lost, ~2.9 s a query. `manual_test`; test cases 256 (253 pass, 3 skipped), 3544 assertions |
-| (P2) | **The manual's held-out queries and model decided**: `eval/manual-held-out.txt` (30 queries written after the weight was chosen): words 1 of 30 first, EmbeddingGemma 12 joined, 15 alone, Qwen3-Embedding 15 and 19; the weight stays ½ (partly fitted, above); EmbeddingGemma ships (decisions); no code changed |
-| (P2) | **L4 with a model made for search** (what blocked L5): `builtin_model::embed` pools as the GGUF says (`ARCH.pooling_type`) with its special tokens, so BERT-like and Gemma/Qwen3 embedding models work (a chat model still by its last token); `ovis model pull embedding` (EmbeddingGemma-300M, `default_embedding_model`), which `ovis manual` uses when found (`find_embedding_model`, `--embedding-model`, `--embeddings` fails without it), never the chat model; query and entry prefixes (`manual_embeddings`); the words count half (`lexical_weight`). Fixed: `manual-embeddings.bin` written with one vector size for vectors of two models, after which every read failed and the search fell back to the words. `ovis_eval manual` reports embeddings alone too, `--lexical-weight`, `--query-prefix`, `--entry-prefix`, `--no-prefixes`. Measured (above): first 25 of 34 against 13. `manual_test`; test cases 255 (252 pass, 3 skipped), 3539 assertions |
-| (P2) | **L6, `ovis manual --html DIR`**: `write_manual_html` writes `index.html` (every entry under its topic) and one page per topic (per package and topic), an anchor per entry with its sentence, other ways of saying it and examples; with words, only the entries found. The links are checked in the files written (a page and an id must be there), problems go to stderr and exit 1; `manual_test`. Test cases 254 (251 pass, 3 skipped) |
-| … | Earlier history: [dream/state](dream/state/INDEX.md) (to deployment, projects J1–J8, packages H1–H9 and the manual's L1–L4, L7–L10, R1; phrase scope S1–S5 and the manual planned) |
+| (P2) | **Phrases given a phrase** (higher-order): 17 templates in `lists.phr` over prelude generics taking `(phrase ((var item)) (var result))`: `the items of xs where _ is even` (`except where`), `double _ applied to each item of xs`, `the first`/`last item of xs where` (an error naming the line when none, `ovis_runtime_error`), `the position of the first item …`, `the number of items of xs where`, `xs has an item where` / `all items of xs are ones where` / `xs has no item where`, `xs combined with add _ and _ [starting from 0]`, `xs sorted using _ is above _` / `sort xs using` (stable merge sort), `call f with each item of xs`, `keep` / `remove the items of xs where`. The manual's word floors (13 / 21) kept by leaving out wordings with `only`, `every`, `some`, `how many`. The elaborator binds type variables through a phrase argument (`bind_phrase`), `match_type` through a signature; a call through a phrase value, and the prelude's calls, put back the caller's line. 188 templates; test cases 256 (253 pass, 3 skipped), 3628 assertions |
+| (P2) | **`is not` for any truth value's phrase**: `word is not empty`, `n isn't even` read as `not` of the phrase with `is` (`match` in parser.cpp, `slot_fills::negated`), only where no phrase reads the words as written (`x is not 5`, `p is not nothing` keep their own); no new templates, so a list's 9 one-list readings still fit in one question |
+| (P1) | **No prompt in the terminal** (owner): `ovis run`/`build`/`fix` never ask which reading a line has; unclear lines are reported, `fix` writes `use` lines and `--line N --apply K` or `--meaning TEXT` a meaning; `--no-prompt` removed. **`at the end` in a block** is walked by `check_memory` where it runs (a loop's body: each pass), so `at the end, free xs` before the next pass's `xs = …` is no longer reported (`memory_check_test`) |
+| … | Earlier history: [dream/state](dream/state/INDEX.md) (the manual's L4–L6 and its measurements; to deployment, projects J1–J8, packages H1–H9 and the manual's L1–L4, L7–L10, R1; phrase scope S1–S5 and the manual planned) |

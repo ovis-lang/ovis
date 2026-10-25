@@ -137,6 +137,8 @@ private:
   // value to (empty if none), innermost last.
   std::vector<std::pair<string_type, string_type>> bare_blocks;
   bool in_loop = false;
+  // The blocks being walked, innermost last: each one's `defer`s so far.
+  std::vector<std::vector<const statement *>> deferred;
 
   auto pass(bool p_report) -> void {
     final_pass = p_report;
@@ -530,9 +532,17 @@ private:
       }
   }
 
+  // A block's `at the end` lines run when it is left: in a loop's body,
+  // at the end of every pass, so `at the end, free xs` frees the list
+  // before the next pass gives `xs` a new one. They are walked there.
   auto walk_block(const std::vector<statement> &p_body) -> void {
+    deferred.emplace_back();
     for (const auto &statement : p_body)
       walk(statement);
+    auto ending = std::move(deferred.back());
+    deferred.pop_back();
+    for (auto at = ending.rbegin(); at != ending.rend(); ++at)
+      walk_block((*at)->body);
   }
 
   auto loop(const std::function<void()> &p_body) -> void {
@@ -690,6 +700,12 @@ private:
       break;
     }
     case kind::defer: {
+      if (!deferred.empty()) {
+        deferred.back().push_back(&p_statement);
+        break;
+      }
+      // In a function's body or at the top level it runs when the function
+      // or program ends, after lines not walked yet: it may not have run.
       const auto before = current;
       walk_block(p_statement.body);
       join_states(current, before);

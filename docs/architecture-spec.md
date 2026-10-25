@@ -136,7 +136,7 @@ a slot.
   prelude_total_by (forall r (field f)) …)`, which `copy_field_generics`
   copies per record and field (`prelude_total_by__book__pages`) before
   elaboration.
-- The library (171 templates): `core.phr` (output, input, prompts,
+- The library (188 templates): `core.phr` (output, input, prompts,
   conversions, buffers), `pointers.phr` (below), `maps.phr` (`map of
   text to whole numbers`, `set m at k to v`, `m at k`, `m has k`, `remove
   the entry for k from m`, `the keys of m`, `for each k in m`), `lists.phr`, `numbers.phr` (also bits, bytes,
@@ -146,7 +146,13 @@ a slot.
   phrases call one generic prelude function each (`prelude_contains
   (forall (item equatable))`, `prelude_smallest`, `prelude_sum_int (forall
   (item number))`…), copied per element type, records included; built-in
-  templates have no `for records:` lines. `test/phrase_library.txt` has a program and its output for
+  templates have no `for records:` lines. **Phrases given a phrase**
+  (`lists.phr`: filter, map, find, count, any/all/none, reduce, `sorted
+  using`, on each, keep/remove where) take a `{f: ptr}` slot, a phrase
+  value (§7b; map's result is `any[]` to the parser), and call a prelude
+  generic taking `(phrase ((var item)) (var result))`: the elaborator binds
+  its variables through the phrase (`bind_phrase`), `match_type` through
+  its signature. No closures: the phrase sees only its parameters. `test/phrase_library.txt` has a program and its output for
   every template; `templates_used` in the result shows which were used.
 
 ## 5. Reading a program
@@ -160,7 +166,8 @@ STATEMENT` / `at the end:` (or `defer`), `do:` / `NAME = do:` and `leave
 [with VALUE]` (Core `(block :block_N …)` and `(leave :block_N …)`; names
 first set inside stay in it, as in `at the end:`), else a statement phrase); its span is read by a chart parser (fixed
 operator precedence, phrases, optional articles, plurals of words of 3+
-letters) filtered by
+letters; `is not`/`isn't` for the `is` of a truth value's phrase, read
+as its `not`, unless a phrase reads the words as written) filtered by
 types. A reading brackets a phrase with a slot at its edge that fills a
 slot at an expression's edge (`(add tax to x) with 2 decimals`), so
 different groupings never read the same. One reading: lowered. Several, or none: a question (below), whose
@@ -439,7 +446,7 @@ model answered something.
 | Path | Role |
 | --- | --- |
 | `src/ovis/phrase/format.cpp` | `ovis fmt`: sigils put in order, old annotation lines migrated |
-| `src/main.cpp` | CLI: run/build/ir/check/fix/fmt/phrases on a file or folder; in a terminal (not `--quiet`/`--verbose`) a live status line (`status_line`: spinner, stage from `front_end_options::progress` and codegen, elapsed, "loading the model" on the first slow question) with dimmed event lines and a summary in words; `-I`/`-L`, `model path|pull|embed|serve|stop`, the daemon or in-process model, writing sources and lockfiles back, offering fixes in a terminal |
+| `src/main.cpp` | CLI: run/build/ir/check/fix/fmt/phrases on a file or folder; in a terminal (not `--quiet`/`--verbose`) a live status line (`status_line`: spinner, stage from `front_end_options::progress` and codegen, elapsed, "loading the model" on the first slow question) with dimmed event lines and a summary in words; `-I`/`-L`, `model path|pull|embed|serve|stop`, the daemon or in-process model, writing sources and lockfiles back; unclear lines reported, never asked about in the terminal |
 | `src/ovis/phrase/` | the front end: `lexer`, `templates`, `parser` (chart parser, line shapes), `questions` (candidates, `choose`), `front_end` (programs, reading, lowering), `lockfile` |
 | `phrases/*.phr`, `*.core`, `*.generic` | the phrase library, its Ovis Core prelude and generic functions, compiled in by `cmake/embed_phrases.cmake` |
 | `src/ovis/language_model.cpp` | `choose` and its softmax, the HTTP endpoint model |
