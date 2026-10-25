@@ -10,7 +10,7 @@
 # How it lays out ~/.ovis and where it downloads from: docs/deployment.md.
 set -u
 
-ovisup_version=0.0.1
+ovisup_version=0.1.0
 repository=ovis-lang/ovis
 home=${OVIS_HOME:-$HOME/.ovis}
 server=${OVISUP_DIST_SERVER:-}

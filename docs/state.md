@@ -1,6 +1,6 @@
 # Project state
 
-Last updated: 2026-10-25 (L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
+Last updated: 2026-10-25 (R1, version 0.1.0; L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
 release packages and ovisup)
 (branch `claude/llm-matching-failure-hypothesis-xwp3nu`).
 Last dreamed: 2026-10-25 at 74eea1a (manual steps L1–L4, L7 and L8 archived).
@@ -34,14 +34,14 @@ readings only where a line is unclear. The design is in
 | Multi-file programs, nested modules, helper-file rule | Built, tested (`examples/shop`) |
 | Built-in llama.cpp model, embedding, lookup, `ovis model pull` (3B) | Built; determinism tested with a tiny random model |
 | Model daemon (`ovis model serve`, started by builds, in-process fallback) | Built; tested with a scripted model and, `[model]`, started by `ovis` |
-| Deployment ([deployment.md](deployment.md)): `ovisup` sets up, updates (`stable`, `nightly`, pinned versions, `ovis +T`) and uninstalls; `tools/package.sh` makes relocatable packages with LLVM, libclang and clang's headers inside; `release.yml` publishes tags and nightly; `ovis --version` | Built, tested (`ovisup_test`); a Linux x86-64 package installed by ovisup ran the examples in a clean `ubuntu:24.04` container; on GitHub, nightly published from `main`; the first tag `v0.0.1` was refused because CMakeLists.txt said 0.1.0, now 0.0.1 |
+| Deployment ([deployment.md](deployment.md)): `ovisup` sets up, updates (`stable`, `nightly`, pinned versions, `ovis +T`) and uninstalls; `tools/package.sh` makes relocatable packages with LLVM, libclang and clang's headers inside; `release.yml` publishes tags and nightly; `ovis --version` | Built, tested (`ovisup_test`); a Linux x86-64 package installed by ovisup ran the examples in a clean `ubuntu:24.04` container; on GitHub, nightly published from `main`; version 0.1.0 in CMakeLists.txt and ovisup (R1), the tag `v0.1.0` not yet made |
 | Projects ([projects.md](projects.md), J1–J8): `ovis.toml` (a TOML subset), `ovis new`/`init`, commands with no program; a project's C files and pkg-config built by cc; git, path and cmake tables through a CMake project generated into `build/` each build; `ovis.lock` pins git tags; `ovis update`, `ovis cmake`; the toolchain line in ovisup's shim | Built, tested (`project_test`, `project_build_test`, `project_cmake_test`, `ovisup_test`, `examples/project`) |
 | Packages on git ([projects.md](projects.md), H1–H9): versions as tags, minimal version selection per line, ovis.lock with commits and tree hashes, a read-only cache and `vendor/`; packages read locked with the program; scope per file (own + direct dependencies), Core names per package, two lines of one package side by side; `NAME's phrase`; nested `internal/` (S4, programs too); the orphan rule; a package's C and one C library per program; `ovis add`/`remove`/`update`/`tree`/`fetch`/`vendor`/`release` | Built, tested (`packages_test`, with git repositories the test makes) |
 | GPU (Metal etc.) | On by default, `--cpu` to turn off. Measured by the owner on a Mac (M0.5, below) |
 
 ## Verified
 
-- `./build/test_ovis`: 252 test cases (249 pass, 3 skipped) and 3505 assertions pass. Three cases are skipped unless
+- `./build/test_ovis`: 253 test cases (250 pass, 3 skipped) and 3507 assertions pass. Three cases are skipped unless
   `OVIS_TEST_MODEL` is set. The C-library cases skip themselves when
   libclang, zlib or SQLite headers are missing. The `[docs]` case keeps the
   tracking documents under 500 lines and checks their links.
@@ -372,6 +372,7 @@ in names`) is the same before the numbers work. The CI floors still hold (questi
 
 | Commit | Summary |
 | --- | --- |
+| (P2) | **R1, version 0.1.0**: `CMakeLists.txt` and `tools/ovisup` say 0.1.0 (they said 0.0.1, the version of the first tag), and a test (`ovisup_test`) fails if the two differ; deployment.md already named 0.1.0. Done at the owner's word before L5, L6 and L7's rest; the tag `v0.1.0` (the first `stable`) is not made yet. Test cases 253 (250 pass, 3 skipped) |
 | (P2) | **L10, C's entries in `ovis manual`**: `c_header_templates` reads the headers a file's `use "x.h"` lines name (all the program's files when `--in` is not a file) with `import_c_library` and makes an entry for each function and function-like macro (generic ones too), constant and struct: found by its name split into words (`deflateInit` as `deflate init`) and its parameters' names (`c_function::parameter_names`, new), shown as its signature in Ovis's types (`phrase_template::title`: `ovt_add(a: a whole number, b: a whole number) gives a whole number`), the header's first comment sentence, `From x.h.`, and up to two lines of the program that use the name; the ones the program calls come first. Entries are embedded with `--embeddings` by their text, so a header is embedded once. Test cases 252 (249 pass, 3 skipped), 3505 assertions (the test library; zlib and SQLite skip without headers) |
 | (P2) | **L9, a package's `# example:` lines**: a comment `# example: LINE` above a definition is an example, shown first by `ovis manual` (`program_phrase_templates`, not part of `about`); `check_package_examples` compiles them with no model as a `main` probe whose lines keep their line numbers in the package file, so a problem cites `FILE (examples), line N`, and above a `to …:` header the example must use the header's words; `ovis release` runs it after the package reads (`read_package`), and `ovis check` in a package with no `main.ovis` does the same without tagging. Test cases 250 (247 pass, 3 skipped), 3488 assertions |
 | (P2) | **Editor work dropped** (owner, 2026-10-24): `editors/vscode` removed, V1–V12 and the ovisup install of the extension dropped from the manual plan (archived in [dream/state](dream/state/2026-10-24-editor-plans-dropped.md)); the smart manual (L2–L10) is the help, R1 version 0.1.0 follows; `ovis lsp` followed the same day (see the next row) |
