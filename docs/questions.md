@@ -130,7 +130,7 @@ folder beside FILE and the project's `[build] phrases`; `--line N` adds the
 words of line N of FILE (not sigils, comments, texts or numbers); no words
 lists every phrase by topic. The program's and its packages' `to …:` phrases are entries too (L7, `program_phrase_templates`):
 the `#` lines above a header are its `about`, up to two lines that read to it its examples, the package
-its origin. Not yet: records, traits, C functions and variables (L7–L8) and the model choosing (L5).
+its origin. What a file's `use "x.h"` lines import are entries too (L10, `c_header_templates`): functions, function-like and generic macros, constants and structs, found by the name split into words and the parameters' names, titled with the C signature in Ovis's types (`phrase_template::title`), the header's comment sentence, and the program's uses of the name as examples (those it calls first). Not yet: records, traits and top-level values (L7 rest) and the model choosing (L5).
 
 *Embeddings (L4, `manual.cpp`), off by default (`ovis manual --embeddings`).* With a model the query
 and each entry's text (every way of saying it, then `about`; not the

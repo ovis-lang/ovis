@@ -1,9 +1,12 @@
 #include <algorithm>
 #include <filesystem>
+#include <sstream>
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <ovis/phrase/front_end.hpp>
+
+#include "support.hpp"
 
 using namespace std::literals::string_literals;
 
@@ -227,4 +230,89 @@ TEST_CASE("A phrase's # example: lines are its examples, not its sentence.", "[p
   CHECK(entries.front().about == "Adds the tax.");
   REQUIRE(entries.front().examples.size() == 2);
   CHECK(entries.front().examples.front() == "add tax to 50");
+}
+
+namespace {
+
+auto c_entries_of(const std::string &p_program, const std::string &p_words)
+    -> std::vector<ovis::phrase::manual_entry> {
+  ovis::phrase::phrase_file file;
+  file.path = "main.ovis";
+  file.text = p_program;
+  const auto more = ovis::phrase::c_header_templates(
+      {file}, "main.ovis", test_support::test_c_imports());
+  std::vector<std::string> words;
+  std::istringstream split(p_words);
+  for (std::string word; split >> word;)
+    words.push_back(word);
+  // The library's own phrases (`add 40 to xs`) rank among them: only C's.
+  auto found = ovis::phrase::manual_search(words, more, 0);
+  std::erase_if(found, [](const auto &p_entry) { return p_entry.topic != "ovistest"; });
+  return found;
+}
+
+} // namespace
+
+TEST_CASE("The manual has what a header imports: signatures, comments, uses.",
+          "[phrase][manual][c-import]") {
+  if (!ovis::core::has_c_import_support())
+    SKIP("Built without libclang.");
+  const auto program = "use \"ovistest.h\" from \"ovistest\"\nshow ovt_add(2, 3)\n"s;
+
+  // A name split into words finds its function; the signature has the
+  // parameters' names and Ovis's types, the comment is the header's, and the
+  // program's own call is the example.
+  const auto adding = c_entries_of(program, "add");
+  REQUIRE(!adding.empty());
+  CHECK(adding.front().pattern ==
+        "ovt_add(a: a whole number, b: a whole number) gives a whole number");
+  CHECK(adding.front().about == "Adds two numbers. From ovistest.h.");
+  CHECK(adding.front().topic == "ovistest");
+  REQUIRE(adding.front().examples.size() == 1);
+  CHECK(adding.front().examples.front() == "show ovt_add(2, 3)   (main.ovis, line 2)");
+
+  // Constants, structs and macros are entries too.
+  CHECK(c_entries_of(program, "error").front().pattern == "OVT_ERROR = -1");
+  const auto boxes = c_entries_of(program, "box");
+  const auto box = std::ranges::find_if(boxes, [](const auto &p_entry) {
+    return p_entry.pattern.starts_with("ovt_box has corner (");
+  });
+  REQUIRE(box != boxes.end());
+  CHECK(box->about == "A C struct from ovistest.h.");
+  CHECK(c_entries_of(program, "clamp").front().pattern ==
+        "OVT_CLAMP(x, lo, hi)   a C macro, for any types");
+
+  // A parameter's name finds the function too, and only a `use`d header is
+  // read.
+  CHECK(c_entries_of(program, "amount").front().pattern.starts_with("ovt_counter_add("));
+  CHECK(ovis::phrase::c_header_templates({}, "main.ovis", test_support::test_c_imports())
+            .empty());
+  CHECK(c_entries_of("show 1\n"s, "add").empty());
+}
+
+TEST_CASE("The manual has zlib's and SQLite's entries.", "[phrase][manual][c-import]") {
+  const auto has_header = [](const char *p_name) {
+    for (const auto &directory : ovis::core::system_include_directories())
+      if (std::filesystem::exists(directory / p_name))
+        return true;
+    return false;
+  };
+  if (!ovis::core::has_c_import_support() || !has_header("zlib.h") ||
+      !has_header("sqlite3.h"))
+    SKIP("Needs libclang and the zlib and SQLite development files.");
+  ovis::phrase::phrase_file file;
+  file.path = "main.ovis";
+  file.text = "use \"zlib.h\" from \"z\"\nuse \"sqlite3.h\" from \"sqlite3\"\n";
+  const auto more = ovis::phrase::c_header_templates({file}, "main.ovis",
+                                                     test_support::test_c_imports());
+  const auto has = [&](const std::string &p_word, const std::string &p_start) {
+    auto found = ovis::phrase::manual_search({p_word}, more, 0);
+    return std::ranges::any_of(found, [&](const auto &p_entry) {
+      return p_entry.pattern.starts_with(p_start);
+    });
+  };
+  // `deflateInit` is a macro and `sqlite3_open` a function with a comment.
+  CHECK(has("deflate", "deflateInit("));
+  CHECK(has("open", "sqlite3_open("));
+  CHECK(has("ok", "Z_OK = 0"));
 }

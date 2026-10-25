@@ -105,6 +105,9 @@ struct phrase_template {
   // reads to this template.
   string_type about;
   std::vector<string_type> examples;
+  // How the manual names it when its pattern is only the words it is found
+  // by: a C function's signature (`deflateInit(strm, level) gives …`).
+  string_type title;
   // `=> records`: the phrase is for records only, so it has no Ovis Core of
   // its own and `core` is empty.
   bool records_only = false;

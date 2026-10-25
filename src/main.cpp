@@ -2263,9 +2263,13 @@ auto manual_command(const arguments &p_arguments, const char *p_argument_zero)
     }
     // The program's own and its packages' phrases (L7).
     try {
-      auto own = ovis::phrase::program_phrase_templates(
-          load_program_files(p_arguments, in), in);
+      const auto files = load_program_files(p_arguments, in);
+      auto own = ovis::phrase::program_phrase_templates(files, in);
       std::ranges::move(own, std::back_inserter(own_phrases));
+      // What its `use "x.h"` lines import (L10).
+      auto c_entries =
+          ovis::phrase::c_header_templates(files, in, p_arguments.c_imports);
+      std::ranges::move(c_entries, std::back_inserter(own_phrases));
     } catch (const ovis::error &) {
     }
     if (!p_arguments.fix_line.empty()) {

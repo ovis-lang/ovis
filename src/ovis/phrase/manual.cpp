@@ -209,7 +209,9 @@ auto manual_search(const std::vector<string_type> &p_words,
 auto manual_entry_of(const phrase_template &p_item) -> manual_entry {
   manual_entry entry{.topic = std::filesystem::path(p_item.file).stem().string(),
                      .package = p_item.package,
-                     .pattern = spoken_pattern(p_item, p_item.patterns.front()),
+                     .pattern = p_item.title.empty()
+                                    ? spoken_pattern(p_item, p_item.patterns.front())
+                                    : p_item.title,
                      .about = p_item.about,
                      .examples = p_item.examples};
   for (std::size_t other = 1; other < p_item.patterns.size(); ++other)
@@ -447,6 +449,202 @@ auto program_phrase_templates(const std::vector<phrase_file> &p_files,
   return result;
 }
 
+
+namespace {
+
+// `deflateInit` → deflate, init; `ovt_point_sum` → ovt, point, sum: the
+// words an author could say it by.
+auto name_words(const string_type &p_name) -> std::vector<string_type> {
+  std::vector<string_type> words;
+  string_type current;
+  const auto finish = [&] {
+    if (!current.empty())
+      words.push_back(current);
+    current.clear();
+  };
+  for (std::size_t at = 0; at < p_name.size(); ++at) {
+    const auto letter = static_cast<unsigned char>(p_name[at]);
+    if (!std::isalnum(letter)) {
+      finish();
+      continue;
+    }
+    // A capital after a small letter or digit starts a word; the last
+    // capital of a run starts one before a small letter (`CXCursor` → cx,
+    // cursor).
+    const bool upper = std::isupper(letter);
+    const bool after_lower = at > 0 && !std::isupper(static_cast<unsigned char>(p_name[at - 1])) &&
+                             std::isalnum(static_cast<unsigned char>(p_name[at - 1]));
+    const bool before_lower = at + 1 < p_name.size() && std::islower(static_cast<unsigned char>(p_name[at + 1]));
+    const bool after_upper = at > 0 && std::isupper(static_cast<unsigned char>(p_name[at - 1]));
+    if (upper && (after_lower || (after_upper && before_lower)))
+      finish();
+    current += static_cast<char>(std::tolower(letter));
+  }
+  finish();
+  return words;
+}
+
+auto word_pattern(const std::vector<string_type> &p_words) -> pattern {
+  pattern result;
+  for (const auto &word : p_words)
+    result.push_back({.kind = pattern_element::kind_type::word, .word = word});
+  return result;
+}
+
+} // namespace
+
+auto c_header_templates(const std::vector<phrase_file> &p_files,
+                        const std::filesystem::path &p_from,
+                        const core::c_import_options &p_imports)
+    -> std::vector<phrase_template> {
+  if (!core::has_c_import_support())
+    return {};
+  const phrase_file *from = nullptr;
+  for (const auto &file : p_files)
+    if (!p_from.empty() && file.path.lexically_normal() == p_from.lexically_normal())
+      from = &file;
+  // The header lines of the file, and the lines of the program to find uses in.
+  struct header {
+    string_type name, library;
+  };
+  std::vector<header> headers;
+  std::vector<std::pair<string_type, string_type>> lines;
+  for (const auto &file : p_files) {
+    const auto shown = file.name.empty() ? file.path.filename().string() : file.name;
+    std::istringstream input(file.text);
+    string_type line;
+    for (std::size_t number = 1; std::getline(input, line); ++number) {
+      const auto text = trimmed(line);
+      if (text.empty() || text.front() == '#' || text.starts_with("@["))
+        continue;
+      const bool top = line.front() != ' ' && line.front() != '\t';
+      if (top && text.starts_with("use ") && text.find(".h\"") != string_type::npos) {
+        if (from != nullptr && &file != from)
+          continue;
+        std::vector<string_type> texts;
+        for (std::size_t at = 0; (at = text.find('"', at)) != string_type::npos;) {
+          const auto close = text.find('"', at + 1);
+          if (close == string_type::npos)
+            break;
+          texts.push_back(text.substr(at + 1, close - at - 1));
+          at = close + 1;
+        }
+        if (!texts.empty() && texts[0].ends_with(".h") &&
+            std::ranges::none_of(headers, [&](const header &p_seen) {
+              return p_seen.name == texts[0];
+            }))
+          headers.push_back({texts[0], texts.size() > 1 ? texts[1] : string_type()});
+      } else
+        lines.emplace_back(text + "   (" + shown + ", line " + std::to_string(number) + ")",
+                           text);
+    }
+  }
+  const auto uses_of = [&](const string_type &p_name) {
+    std::vector<string_type> found;
+    string_type wanted;
+    for (const auto letter : p_name)
+      wanted += static_cast<char>(std::tolower(static_cast<unsigned char>(letter)));
+    for (const auto &[shown, text] : lines) {
+      if (found.size() >= 2)
+        break;
+      const auto words = words_of(text);
+      if (std::ranges::find(words, wanted) != words.end())
+        found.push_back(shown);
+    }
+    return found;
+  };
+  std::vector<phrase_template> result;
+  std::vector<phrase_template> used;
+  for (const auto &entry : headers) {
+    const core::c_library *library = nullptr;
+    try {
+      library = &core::import_c_library(entry.name, entry.library, p_imports);
+    } catch (const error &) {
+      continue;
+    }
+    const auto stem = std::filesystem::path(entry.name).filename().string();
+    const auto add = [&](const string_type &p_name,
+                         const std::vector<string_type> &p_more_words, string_type p_title,
+                         string_type p_about) {
+      auto words = name_words(p_name);
+      words.insert(words.end(), p_more_words.begin(), p_more_words.end());
+      phrase_template item;
+      item.patterns.push_back(word_pattern(words));
+      item.title = std::move(p_title);
+      item.about = std::move(p_about);
+      item.examples = uses_of(p_name);
+      item.file = stem;
+      (item.examples.empty() ? result : used).push_back(std::move(item));
+    };
+    for (const auto &function : library->functions) {
+      string_type title = function.name + "(";
+      std::vector<string_type> parameter_words;
+      for (std::size_t index = 0; index < function.parameters.size(); ++index) {
+        const auto named = index < function.parameter_names.size() &&
+                           !function.parameter_names[index].empty();
+        if (named) {
+          title += (index ? ", " : "") + function.parameter_names[index];
+          for (auto &word : name_words(function.parameter_names[index]))
+            parameter_words.push_back(std::move(word));
+        } else
+          title += string_type(index ? ", " : "") + "_";
+        if (!function.is_c_generic)
+          title += ": " + core::describe_in_english(core::c_parameter_type(function, index));
+      }
+      if (function.is_variadic)
+        title += function.parameters.empty() ? "..." : ", ...";
+      title += ")";
+      if (function.is_c_generic)
+        title += "   a C macro, for any types";
+      else {
+        const auto result_type = core::c_result_type(function);
+        if (result_type != core::value_type::nothing())
+          title += " gives " + core::describe_in_english(result_type);
+        if (function.is_macro)
+          title += "   a C macro";
+      }
+      auto about = function.comment;
+      if (function.is_c_generic && about == "A C macro.")
+        about.clear();
+      add(function.name, parameter_words, std::move(title),
+          (about.empty() ? "" : about + " ") + "From " + entry.name + ".");
+    }
+    for (const auto &constant : library->constants) {
+      string_type value;
+      switch (constant.kind) {
+      case core::c_constant::kind_type::integer:
+        value = std::to_string(constant.integer);
+        break;
+      case core::c_constant::kind_type::real:
+        value = std::to_string(constant.real);
+        break;
+      case core::c_constant::kind_type::null:
+        value = "null";
+        break;
+      case core::c_constant::kind_type::runtime:
+        break;
+      }
+      add(constant.name, {}, constant.name + (value.empty() ? "" : " = " + value),
+          "A C constant from " + entry.name + ".");
+    }
+    for (const auto &record : library->records) {
+      string_type title = record.name + " has ";
+      std::vector<string_type> field_words;
+      for (std::size_t index = 0; index < record.fields.size(); ++index) {
+        title += string_type(index ? ", " : "") + record.fields[index].name + " (" +
+                 core::describe_in_english(record.fields[index].type) + ")";
+        for (auto &word : name_words(record.fields[index].name))
+          field_words.push_back(std::move(word));
+      }
+      add(record.name, field_words, std::move(title),
+          "A C " + string_type(record.c_spelling.starts_with("union") ? "union" : "struct") +
+              " from " + entry.name + ".");
+    }
+  }
+  used.insert(used.end(), std::make_move_iterator(result.begin()),
+              std::make_move_iterator(result.end()));
+  return used;
+}
 
 auto check_package_examples(const std::vector<phrase_file> &p_files, std::size_t p_first,
                             const front_end_options &p_options) -> std::vector<string_type> {

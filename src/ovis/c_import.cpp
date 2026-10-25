@@ -425,6 +425,8 @@ auto import_function(import_state &p_state, CXCursor p_cursor) -> void {
           ", which Ovis can't pass yet");
       return;
     }
+    function.parameter_names.push_back(to_string(clang_getCursorSpelling(
+        clang_Cursor_getArgument(p_cursor, static_cast<unsigned>(index)))));
     function.parameters.push_back(mapped->type);
     function.pointees.push_back(mapped->pointee);
     function.records.push_back(
@@ -505,6 +507,7 @@ auto import_function_macro(import_state &p_state,
     const auto index = argument_of(parameter);
     if (!index || callee->by_value[*index])
       return;
+    function.parameter_names.push_back(parameter);
     function.parameters.push_back(callee->parameters[*index]);
     function.pointees.push_back(callee->pointees[*index]);
     function.records.push_back(callee->records[*index]);
@@ -627,6 +630,7 @@ auto import_generic_macro(import_state &p_state,
     }
     function.macro_roles.push_back(role);
   }
+  function.parameter_names = parameters;
   function.parameters.assign(parameters.size(), c_type::long_type);
   function.pointees.assign(parameters.size(), std::nullopt);
   function.records.assign(parameters.size(), "");

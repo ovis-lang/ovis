@@ -50,6 +50,9 @@ struct c_function {
   std::vector<std::optional<c_type>> pointees;
   // The header's comment for the function, if any; shown to the model.
   string_type comment;
+  // The header's names for the parameters (`strm`, `level`), for the manual;
+  // empty for a function with none written.
+  std::vector<string_type> parameter_names;
   // A pointer to a struct the header defines is that C record (its name per
   // parameter, empty for others; and for the result).
   std::vector<string_type> records;

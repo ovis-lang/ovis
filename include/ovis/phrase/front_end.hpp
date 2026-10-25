@@ -321,6 +321,21 @@ auto program_phrase_templates(const std::vector<phrase_file> &p_files,
                               const std::filesystem::path &p_from = {})
     -> std::vector<phrase_template>;
 
+// What a file's `use "x.h"` lines import, as manual entries (L10): each
+// function (and function-like macro), constant and struct, found by its name
+// split into words (`deflateInit` as `deflate init`) and its parameters'
+// names, shown with its C signature in Ovis's types, the header's first
+// comment sentence and up to two lines of the program that use it; the ones
+// the program already calls come first. Only the headers of the file
+// `p_from` (of every file of the program when `p_from` is not one of them);
+// a header that can't be read is left out. Headers are read once (and kept
+// by their contents) by `import_c_library`, and an entry's vector is kept
+// by its text, so a header is embedded once.
+auto c_header_templates(const std::vector<phrase_file> &p_files,
+                        const std::filesystem::path &p_from,
+                        const core::c_import_options &p_imports)
+    -> std::vector<phrase_template>;
+
 // A package's `# example: LINE` comments (L9), above a `to …:` header or any
 // definition: each line must read with no model, in its own file's package
 // (the files from `p_first` on are the package's; those before are its

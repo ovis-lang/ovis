@@ -1,9 +1,9 @@
 # Project state
 
-Last updated: 2026-10-25 (L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
+Last updated: 2026-10-25 (L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
 release packages and ovisup)
 (branch `claude/llm-matching-failure-hypothesis-xwp3nu`).
-Last dreamed: 2026-10-25 at 5f4420b (manual steps L1–L4 archived).
+Last dreamed: 2026-10-25 at 74eea1a (manual steps L1–L4, L7 and L8 archived).
 [dream/state](dream/state/INDEX.md).
 
 Ovis is a compiler whose source code is plain English: lines of phrases,
@@ -41,7 +41,7 @@ readings only where a line is unclear. The design is in
 
 ## Verified
 
-- `./build/test_ovis`: 250 test cases (247 pass, 3 skipped) and 3488 assertions pass. Three cases are skipped unless
+- `./build/test_ovis`: 252 test cases (249 pass, 3 skipped) and 3505 assertions pass. Three cases are skipped unless
   `OVIS_TEST_MODEL` is set. The C-library cases skip themselves when
   libclang, zlib or SQLite headers are missing. The `[docs]` case keeps the
   tracking documents under 500 lines and checks their links.
@@ -372,12 +372,11 @@ in names`) is the same before the numbers work. The CI floors still hold (questi
 
 | Commit | Summary |
 | --- | --- |
+| (P2) | **L10, C's entries in `ovis manual`**: `c_header_templates` reads the headers a file's `use "x.h"` lines name (all the program's files when `--in` is not a file) with `import_c_library` and makes an entry for each function and function-like macro (generic ones too), constant and struct: found by its name split into words (`deflateInit` as `deflate init`) and its parameters' names (`c_function::parameter_names`, new), shown as its signature in Ovis's types (`phrase_template::title`: `ovt_add(a: a whole number, b: a whole number) gives a whole number`), the header's first comment sentence, `From x.h.`, and up to two lines of the program that use the name; the ones the program calls come first. Entries are embedded with `--embeddings` by their text, so a header is embedded once. Test cases 252 (249 pass, 3 skipped), 3505 assertions (the test library; zlib and SQLite skip without headers) |
 | (P2) | **L9, a package's `# example:` lines**: a comment `# example: LINE` above a definition is an example, shown first by `ovis manual` (`program_phrase_templates`, not part of `about`); `check_package_examples` compiles them with no model as a `main` probe whose lines keep their line numbers in the package file, so a problem cites `FILE (examples), line N`, and above a `to …:` header the example must use the header's words; `ovis release` runs it after the package reads (`read_package`), and `ovis check` in a package with no `main.ovis` does the same without tagging. Test cases 250 (247 pass, 3 skipped), 3488 assertions |
-| (P2) | **L8, the names in scope at a line, and `--for`**: with `front_end_options::variables_recorded` the reader keeps the names in scope before each line (`program_result::variables`: name, type as an author says it, the line that first set it); `ovis manual --in FILE --line N` prints them ("Set before line N") before the search with the line's words, and `--for NAME|TYPE` (with `--line N`, else at the end of the file) lists the phrases that take that name's type or a type written in words, by `accepts`, the check lines are read with (`phrases_taking`), without the model. Compiled without the model, so a name set by a line the parser can't settle shows `type not known`. Not yet: records, traits, C functions as entries (L7 rest, L10). Test cases 248 (245 pass, 3 skipped), 3460 assertions |
-| (P2) | **L7, the program's and packages' phrases in `ovis manual`**: `program_phrase_templates` scans every file's top-level `to …:` headers (not a compile, so they show while other lines have problems) into entries: the pattern from the header (slots as `VALUE`), the `#` lines above it as `about`, up to two lines of the program that read to it as examples ("line   (file, line N)"), the package as origin; with `--in FILE`, a package FILE doesn't `use` is marked "write `use NAME` to read it". Not yet: records, traits, top-level values and C functions as entries, `# example:` lines, a version in the origin, hiding a phrase the file can't see (L7 rest, L8). Test cases 247 (244 pass, 3 skipped), 3444 assertions |
 | (P2) | **Editor work dropped** (owner, 2026-10-24): `editors/vscode` removed, V1–V12 and the ovisup install of the extension dropped from the manual plan (archived in [dream/state](dream/state/2026-10-24-editor-plans-dropped.md)); the smart manual (L2–L10) is the help, R1 version 0.1.0 follows; `ovis lsp` followed the same day (see the next row) |
 | (P2) | **Language server removed** (owner, 2026-10-24): `ovis lsp`, `language_server.cpp/.hpp` and its test are gone; `ovis check --json` and `ovis fix --line/--apply` stay as the tools for editors and scripts |
-| … | Earlier history: [dream/state](dream/state/INDEX.md) (to deployment, projects J1–J8, packages H1–H9 and the manual's L1–L4) |
+| … | Earlier history: [dream/state](dream/state/INDEX.md) (to deployment, projects J1–J8, packages H1–H9 and the manual's L1–L4, L7, L8) |
 | (P2) | **Manual and editor planned**: [proposals/manual-and-editor.md](proposals/manual-and-editor.md) (accepted, L1–L10, V1–V12, then R1 version 0.1.0; the extension installed by ovisup; the program's, packages' and C's own words, variables, and the manual beside the code in VS Code); no code changed |
 | (P1) | **No fix the model turned down**: when the model was asked and settled nothing, a report and its fixes (`ovis fix`, the prompt in `run`, the editor) offer only the readings it put above "none of these", likeliest first (`question_asker::not_rejected`); if none, "The model found no reading that means the same; write it in other words." and phrases to try; offline, every reading as before; `question_test` |
 | (P1) | **A name of several words in an unclear line is one argument**: `unknown_candidates` took `split some line by ","` word by word, so `some line` was lost and every reading was of `","` alone (`ask "," for a line`; the model picked one and the program showed `,`); now the longest name in scope there is one argument (`some line split by ","` first), and "Phrases with these words" leaves out its words; `question_test` |
