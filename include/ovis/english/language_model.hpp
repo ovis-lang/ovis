@@ -175,6 +175,22 @@ auto default_models() -> const std::vector<default_model> &;
 // The one to use with a GPU or without one.
 auto default_model_for(bool p_gpu) -> const default_model &;
 
+// The model `ovis manual` finds meanings with (`ovis model pull embedding`):
+// one made for search, which the chat models aren't (eval/manual-queries.txt,
+// state.md), with what it wants written before a query and before an entry.
+struct embedding_model {
+  string_view_type file_name;
+  string_view_type url;
+  string_view_type query_prefix;
+  string_view_type entry_prefix;
+};
+auto default_embedding_model() -> const embedding_model &;
+// `p_explicit` (--embedding-model), then the default one next to the
+// executable, in ../share/ovis or in the cache directory.
+auto find_embedding_model(const std::optional<std::filesystem::path> &p_explicit,
+                          const std::filesystem::path &p_executable)
+    -> std::optional<model_location>;
+
 // Directory `ovis model pull` downloads into: $XDG_CACHE_HOME/ovis/models or
 // ~/.cache/ovis/models.
 auto model_cache_directory() -> std::filesystem::path;

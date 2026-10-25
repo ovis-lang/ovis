@@ -1,6 +1,6 @@
 # Project state
 
-Last updated: 2026-10-25 (L6, `ovis manual --html`; R1, version 0.1.0; L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
+Last updated: 2026-10-25 (L4 with EmbeddingGemma, unblocking L5; L6, `ovis manual --html`; R1, version 0.1.0; L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
 release packages and ovisup)
 (branch `claude/llm-matching-failure-hypothesis-xwp3nu`).
 Last dreamed: 2026-10-25 at 74eea1a (manual steps L1–L4, L7 and L8 archived).
@@ -41,7 +41,7 @@ readings only where a line is unclear. The design is in
 
 ## Verified
 
-- `./build/test_ovis`: 254 test cases (251 pass, 3 skipped) and 3516 assertions pass. Three cases are skipped unless
+- `./build/test_ovis`: 255 test cases (252 pass, 3 skipped) and 3539 assertions pass. Three cases are skipped unless
   `OVIS_TEST_MODEL` is set. The C-library cases skip themselves when
   libclang, zlib or SQLite headers are missing. The `[docs]` case keeps the
   tracking documents under 500 lines and checks their links.
@@ -256,6 +256,30 @@ set`. The one ranking miss (`number of names` read as `number of items
 in names`) is the same before the numbers work. The CI floors still hold (questions: right reading first in 11 of
 24, shown in 24; wording 23 and 25).
 
+## Manual measured
+
+`ovis_eval manual eval/manual-queries.txt` (34 queries far from the
+phrases' words), 4 CPUs, 2026-10-25: where the entry meant comes, first /
+in the first 5, and the time a query once the entries are cached (each
+model embeds the 171 once, in 1–20 s).
+
+| Embeddings | Joined, words 3× | Alone | Per query |
+| --- | --- | --- | --- |
+| None (the words) | 13 / 21 | — | — |
+| 3B (Qwen2.5-Coder, last token; L4) | 13 / 21 | — | 0.5 s |
+| bge-small-en-v1.5 (37 MB) | 17 / 22 | 18 / 24 | 56 ms |
+| nomic-embed-text-v1.5 (146 MB) | 16 / 23 | 15 / 26 | 0.2 s |
+| EmbeddingGemma-300M (334 MB) | 19 / 24 | 23 / 33 | 50 ms |
+| Qwen3-Embedding-0.6B (639 MB) | 18 / 24 | 24 / 31 | ~1 s |
+
+Each with the prefixes its authors give (Qwen3 an instruction).
+EmbeddingGemma joined with the words counting 0.25 or 0.5: **25 / 33**
+(46 ms); at 1, 19 / 31. A model made for search reaches what the words
+miss (`trimmed`, `reversed`, `rounded down`, `a copy of`, `in hex`); 3B's
+vectors did not. So the words now count half and `ovis manual` uses
+EmbeddingGemma when it is pulled. The weight was picked on these 34
+queries, with no held-out set yet (remaining-tasks.md).
+
 ## Not verified / known gaps
 
 - The prompt cache's states (~3 MB each) are never cleaned up.
@@ -372,6 +396,7 @@ in names`) is the same before the numbers work. The CI floors still hold (questi
 
 | Commit | Summary |
 | --- | --- |
+| (P2) | **L4 with a model made for search** (what blocked L5): `builtin_model::embed` pools as the GGUF says (`ARCH.pooling_type`) with its special tokens, so BERT-like and Gemma/Qwen3 embedding models work (a chat model still by its last token); `ovis model pull embedding` (EmbeddingGemma-300M, `default_embedding_model`), which `ovis manual` uses when found (`find_embedding_model`, `--embedding-model`, `--embeddings` fails without it), never the chat model; query and entry prefixes (`manual_embeddings`); the words count half (`lexical_weight`). Fixed: `manual-embeddings.bin` written with one vector size for vectors of two models, after which every read failed and the search fell back to the words. `ovis_eval manual` reports embeddings alone too, `--lexical-weight`, `--query-prefix`, `--entry-prefix`, `--no-prefixes`. Measured (above): first 25 of 34 against 13. `manual_test`; test cases 255 (252 pass, 3 skipped), 3539 assertions |
 | (P2) | **L6, `ovis manual --html DIR`**: `write_manual_html` writes `index.html` (every entry under its topic) and one page per topic (per package and topic), an anchor per entry with its sentence, other ways of saying it and examples; with words, only the entries found. The links are checked in the files written (a page and an id must be there), problems go to stderr and exit 1; `manual_test`. Test cases 254 (251 pass, 3 skipped) |
 | (P2) | **R1, version 0.1.0**: `CMakeLists.txt` and `tools/ovisup` say 0.1.0 (they said 0.0.1, the version of the first tag), and a test (`ovisup_test`) fails if the two differ; deployment.md already named 0.1.0. Done at the owner's word before L5, L6 and L7's rest; the tag `v0.1.0` (the first `stable`) is not made yet. Test cases 253 (250 pass, 3 skipped) |
 | (P2) | **L10, C's entries in `ovis manual`**: `c_header_templates` reads the headers a file's `use "x.h"` lines name (all the program's files when `--in` is not a file) with `import_c_library` and makes an entry for each function and function-like macro (generic ones too), constant and struct: found by its name split into words (`deflateInit` as `deflate init`) and its parameters' names (`c_function::parameter_names`, new), shown as its signature in Ovis's types (`phrase_template::title`: `ovt_add(a: a whole number, b: a whole number) gives a whole number`), the header's first comment sentence, `From x.h.`, and up to two lines of the program that use the name; the ones the program calls come first. Entries are embedded with `--embeddings` by their text, so a header is embedded once. Test cases 252 (249 pass, 3 skipped), 3505 assertions (the test library; zlib and SQLite skip without headers) |

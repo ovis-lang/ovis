@@ -108,10 +108,44 @@ TEST_CASE("A model finds a phrase by its meaning where the words miss it.",
       {"shout"}, {}, 3, {.model = &model, .cache = cache});
   CHECK(model.embedded == 1);
   CHECK(again.front().pattern == "TEXT in capitals");
+
+  // Another model's vectors of another size in the same file: each model's
+  // search still works, twice (the file once held both sizes as one, and
+  // every later read failed and left the search to the words).
+  class wide_model final : public ovis::english::language_model {
+  public:
+    auto name() const -> std::string override { return "wide"; }
+    auto chat(const std::vector<ovis::english::chat_message> &, std::string_view)
+        -> std::string override {
+      return {};
+    }
+    auto embed(const std::vector<std::string> &p_texts)
+        -> std::vector<std::vector<float>> override {
+      std::vector<std::vector<float>> result;
+      for (const auto &text : p_texts)
+        result.push_back(text.find("capitals") != std::string::npos ||
+                                 text.find("shout") != std::string::npos
+                             ? std::vector<float>{0, 0, 1}
+                             : std::vector<float>{1, 0, 0});
+      return result;
+    }
+  } wide;
+  for (int time = 0; time < 2; ++time) {
+    const auto by_wide =
+        ovis::phrase::manual_search({"shout"}, {}, 3, {.model = &wide, .cache = cache});
+    REQUIRE(!by_wide.empty());
+    CHECK(by_wide.front().pattern == "TEXT in capitals");
+    const auto by_topic =
+        ovis::phrase::manual_search({"shout"}, {}, 3, {.model = &model, .cache = cache});
+    REQUIRE(!by_topic.empty());
+    CHECK(by_topic.front().pattern == "TEXT in capitals");
+  }
   std::filesystem::remove(cache);
 
   // A word of the phrase still counts: the words and the meaning are joined.
-  const auto both = ovis::phrase::manual_search({"reversed"}, {}, 3, {.model = &model});
+  // This model ties every entry but the capitals', and the words count half,
+  // so the word lifts its phrase into the first 10, not the first 3.
+  const auto both = ovis::phrase::manual_search({"reversed"}, {}, 10, {.model = &model});
   CHECK(std::ranges::any_of(both, [](const auto &p_entry) {
     return p_entry.pattern == "TEXT reversed";
   }));

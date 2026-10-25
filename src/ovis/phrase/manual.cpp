@@ -63,9 +63,12 @@ auto read_cache(const std::filesystem::path &p_path) -> vectors_by_key {
   return result;
 }
 
-// A cache that can't be written is only slower next time.
-auto write_cache(const std::filesystem::path &p_path,
-                 const vectors_by_key &p_vectors) -> void {
+// A cache that can't be written is only slower next time. The file holds
+// vectors of one size: another model's of another size are dropped, or they
+// would be written cut or run together and read as nonsense.
+auto write_cache(const std::filesystem::path &p_path, vectors_by_key p_vectors,
+                 std::size_t p_size) -> void {
+  std::erase_if(p_vectors, [&](const auto &p_entry) { return p_entry.second.size() != p_size; });
   if (p_vectors.empty())
     return;
   std::error_code ignored;
@@ -120,7 +123,7 @@ auto embedding_scores(const string_type &p_query,
           cache[cache_key(model, missing[index])] = made[index - begin];
       }
       if (!p_options.cache.empty())
-        write_cache(p_options.cache, cache);
+        write_cache(p_options.cache, cache, cache.at(keys.front()).size());
     }
     const auto asked = p_options.model->embed({p_query});
     if (asked.size() != 1)
@@ -144,9 +147,6 @@ auto embedding_scores(const string_type &p_query,
 // Reciprocal-rank fusion's constant: small, so the first few of either list
 // count much more than the rest.
 constexpr double fusion_constant = 10;
-// A word the author wrote is surer evidence than a similarity of 3B's vectors,
-// so the lexical place counts this many times over.
-constexpr double lexical_weight = 3;
 
 } // namespace
 
@@ -169,10 +169,10 @@ auto manual_search(const std::vector<string_type> &p_words,
     if (p_embeddings.model != nullptr) {
       std::vector<string_type> texts;
       for (const auto &item : templates)
-        texts.push_back(entry_text(item));
-      string_type query;
+        texts.push_back(p_embeddings.entry_prefix + entry_text(item));
+      auto query = p_embeddings.query_prefix;
       for (const auto &word : p_words)
-        query += (query.empty() ? "" : " ") + word;
+        query += (query.size() == p_embeddings.query_prefix.size() ? "" : " ") + word;
       alike = embedding_scores(query, texts, p_embeddings);
     }
     if (!alike.empty()) {
@@ -186,7 +186,7 @@ auto manual_search(const std::vector<string_type> &p_words,
       for (std::size_t place = 0; place < by_meaning.size(); ++place)
         score[by_meaning[place]] += 1 / (fusion_constant + double(place));
       for (std::size_t place = 0; place < lexical.size(); ++place)
-        score[lexical[place]] += lexical_weight / (fusion_constant + double(place));
+        score[lexical[place]] += p_embeddings.lexical_weight / (fusion_constant + double(place));
       std::vector<std::size_t> order(templates.size());
       std::iota(order.begin(), order.end(), 0);
       // The lexical order first, so it decides among equals.

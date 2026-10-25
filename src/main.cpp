@@ -79,7 +79,9 @@ Commands:
              every phrase by topic;
              --html DIR writes the entries as web pages (every phrase, or the
              ones the words find), links checked;
-             --embeddings also compares meanings with the model (no better yet)
+             finds meanings too with the embedding model when it is there
+             (ovis model pull embedding; --embeddings: fail without it,
+             --embedding-model PATH: another; --offline: words alone)
   check-phrases
              whether this program's own phrases (its `to …:` blocks and
              helper files) make the questions Ovis asks about other lines
@@ -107,7 +109,8 @@ Commands:
 
   model path   show which built-in model would be used
   model pull   download the default model into the cache directory: 7B
-               where a GPU runs it, else 3B (or name one: 3b, 7b)
+               where a GPU runs it, else 3B (or name one: 3b, 7b), or
+               `embedding`, the model `ovis manual` finds meanings with
   model embed  write a copy of ovis with MODEL built into the executable
   model stop   stop the model daemon for these options, if one is running
 
@@ -191,8 +194,10 @@ struct arguments {
   bool verbose = false;
   ovis::core::c_import_options c_imports;
   bool offline = false;
-  // `manual --embeddings`: also find phrases by meaning (off: measured no better).
+  // `manual --embeddings`: find phrases by meaning or fail (without it, by
+  // meaning when the embedding model is there); `--embedding-model PATH`.
   bool manual_embeddings = false;
+  std::optional<std::filesystem::path> embedding_model;
   bool quiet = false;
   bool keep_source = false;
   double model_budget = 10;
@@ -384,6 +389,8 @@ auto parse_arguments(int p_count, char **p_values) -> arguments {
       result.endpoint.use_grammar = false;
     else if (option == "--model-path")
       result.model_path = value();
+    else if (option == "--embedding-model")
+      result.embedding_model = value();
     else if (option == "-I")
       result.c_imports.include_directories.emplace_back(value());
     else if (option == "-L")
@@ -1196,13 +1203,18 @@ auto run_model_command(const arguments &p_arguments,
   if (subcommand == "pull") {
     // The larger model where a GPU runs it, unless asked for one.
     const auto *model = &ovis::english::default_model_for(gpu);
-    if (p_arguments.positional.size() > 1) {
+    // The manual's embedding model has no size; `pull embedding` names it.
+    const auto &embedder = ovis::english::default_embedding_model();
+    const ovis::english::default_model embedding{"embedding", embedder.file_name, embedder.url};
+    if (p_arguments.positional.size() > 1 && p_arguments.positional[1] == "embedding")
+      model = &embedding;
+    else if (p_arguments.positional.size() > 1) {
       const auto found = std::ranges::find(ovis::english::default_models(),
                                            p_arguments.positional[1],
                                            &ovis::english::default_model::size);
       if (found == ovis::english::default_models().end())
         throw ovis::error("Unknown model size " + p_arguments.positional[1] +
-                          "; use 3b or 7b.");
+                          "; use 3b, 7b or embedding.");
       model = &*found;
     }
     const auto directory = ovis::english::model_cache_directory();
@@ -2301,19 +2313,31 @@ auto manual_command(const arguments &p_arguments, const char *p_argument_zero)
     auto library = ovis::phrase::load_phrase_library(directory);
     std::ranges::move(library.templates, std::back_inserter(more));
   }
-  // Meaning is found by the model only when asked (L4, `--embeddings`):
-  // measured with 3B it finds nothing the words miss, state.md.
+  // Meaning is found by a model made for search when it is there (L4,
+  // `ovis model pull embedding`): it finds what the words miss, where 3B's
+  // vectors found nothing (state.md). Never the chat model, and not --offline.
   std::unique_ptr<ovis::english::language_model> model;
-  if (!words.empty() && p_arguments.manual_embeddings) {
-    try {
-      model = make_model(p_arguments, p_argument_zero);
-    } catch (const ovis::error &) {
-    }
+  ovis::phrase::manual_embeddings embeddings{
+      .cache = ovis::english::model_cache_directory() / "manual-embeddings.bin"};
+  if (!words.empty() && !p_arguments.offline && ovis::english::has_builtin_model_support()) {
+    const auto location = ovis::english::find_embedding_model(
+        p_arguments.embedding_model, executable_path(p_argument_zero));
+    if (location) {
+      auto options = builtin_options_of(p_arguments, *location);
+      options.log = {};
+      model = std::make_unique<ovis::english::builtin_model>(options);
+      embeddings.model = model.get();
+      // Another model's prefixes are its author's to know.
+      const auto &known = ovis::english::default_embedding_model();
+      if (location->file.filename() == known.file_name) {
+        embeddings.query_prefix = known.query_prefix;
+        embeddings.entry_prefix = known.entry_prefix;
+      }
+    } else if (p_arguments.manual_embeddings)
+      throw ovis::error("No embedding model found. Run `ovis model pull embedding`.");
   }
   const auto entries = ovis::phrase::manual_search(
-      words, more, p_arguments.manual_html.empty() ? 6 : 0,
-      {.model = model.get(),
-       .cache = ovis::english::model_cache_directory() / "manual-embeddings.bin"});
+      words, more, p_arguments.manual_html.empty() ? 6 : 0, embeddings);
   if (entries.empty()) {
     std::cout << "No phrase is about those words. `ovis manual` lists them all.\n";
     return 1;

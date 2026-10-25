@@ -307,6 +307,14 @@ struct manual_embeddings {
   english::language_model *model = nullptr;
   // Empty: nothing is kept between searches.
   std::filesystem::path cache;
+  // What a model made for search wants before a query and before an entry
+  // (`search_query: `, `search_document: `).
+  string_type query_prefix, entry_prefix;
+  // How many times the lexical place counts against the embeddings'; 0 ranks
+  // by the embeddings alone, for measuring them. Half: EmbeddingGemma's
+  // order is the better one, and the words still lift what they name
+  // (eval/manual-queries.txt: first 25 of 34, against 23 alone and 19 at 1).
+  double lexical_weight = 0.5;
 };
 
 // One template as the manual shows it.

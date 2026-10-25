@@ -88,7 +88,7 @@ manual` (lexical, embeddings, then the model choosing among real entries,
 never writing). The owner dropped all editor work and the VS Code
 extension on 2026-10-24: the smart manual is the help.
 
-- [ ] L5 (R1, version 0.1.0, and L6, `manual --html`, are done). L1–L4,
+- [ ] L5, unblocked (below). (R1, version 0.1.0, and L6, `manual --html`, are done). L1–L4,
   L8 (the names in scope at a line, `--for`), L9 (a package's `# example:`
   lines, checked by `check` and `release`) and L10 (C's entries: functions,
   macros, constants and structs of the `use`d headers, by name split into
@@ -96,10 +96,19 @@ extension on 2026-10-24: the smart manual is the help.
   and L7 (`to …:` phrases, records, traits, a package's constants, with `#` comments, uses, package and version)
   (`ovis manual` is lexical plus embeddings over the library and a
   `phrases/` folder).
-- [ ] L4 measured (state.md): 3B embeddings add nothing over the words
-  (21 of 34 in the first 5 both ways), so `--embeddings` is opt-in. Try a
-  real embedding model, or an `about:` rewritten toward authors' words, before
-  L5 (`choose`), which is worth building only if it beats the words.
+- [x] L4 with a real embedding model (state.md, "manual measured"):
+  EmbeddingGemma-300M beats the words (first 25 of 34 against 13, in the
+  first 5 33 against 21), so `ovis manual` uses it when it is pulled. L5 is
+  unblocked: the model's `choose` now has to beat 25 of 34 first, among
+  the first 5 it puts up (33 of 34 have the entry), for ~2 s a query on
+  the CPU.
+- [ ] Add queries to `eval/manual-queries.txt` (the weight 0.5 was chosen
+  on these 34: a held-out half would say how much of 25 is fitted), and
+  for the program's, packages' and C's entries (§2.6).
+- [ ] Decide which embedding model ships: EmbeddingGemma (Gemma terms) is
+  the best measured; Qwen3-Embedding-0.6B (Apache 2.0, 639 MB) came
+  close alone (24 of 34 first) but takes 5× the time; bge-small (MIT, 37
+  MB) 18. `ovis model pull embedding` and the release packages.
 
 ### Projects without CMake
 

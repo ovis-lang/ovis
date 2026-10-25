@@ -840,12 +840,13 @@ constexpr std::size_t manual_shown = 5;
 
 auto run_manual(const std::vector<question_case> &p_cases,
                 ovis::english::language_model *p_model, int p_only,
-                ranking_floor p_floor) -> int {
+                ranking_floor p_floor, const string_type &p_query_prefix = {},
+                const string_type &p_entry_prefix = {}, double p_lexical_weight = 0.5) -> int {
   struct tally {
     int first = 0;
     int shown = 0;
   };
-  tally words, meaning;
+  tally words, meaning, alone;
   int total = 0;
   const auto count = [](tally &p_tally, std::size_t p_rank) {
     p_tally.first += p_rank == 1;
@@ -870,24 +871,32 @@ auto run_manual(const std::vector<question_case> &p_cases,
     const auto by_words = manual_rank(
         ovis::phrase::manual_search(query, {}, 0), expected);
     count(words, by_words);
-    std::size_t by_meaning = 0;
+    std::size_t by_meaning = 0, by_alone = 0;
     if (p_model != nullptr) {
       const auto start = std::chrono::steady_clock::now();
-      by_meaning = manual_rank(
-          ovis::phrase::manual_search(query, {}, 0,
-                                      {.model = p_model, .cache = cache}),
-          expected);
+      ovis::phrase::manual_embeddings options{.model = p_model,
+                                              .cache = cache,
+                                              .query_prefix = p_query_prefix,
+                                              .entry_prefix = p_entry_prefix,
+                                              .lexical_weight = p_lexical_weight};
+      by_meaning = manual_rank(ovis::phrase::manual_search(query, {}, 0, options),
+                               expected);
       milliseconds += std::chrono::duration<double, std::milli>(
                           std::chrono::steady_clock::now() - start)
                           .count();
       count(meaning, by_meaning);
+      options.lexical_weight = 0;
+      by_alone = manual_rank(ovis::phrase::manual_search(query, {}, 0, options),
+                             expected);
+      count(alone, by_alone);
     }
     ++total;
     std::cout << "#" << index + 1 << " " << expected << ": words "
               << (by_words ? std::to_string(by_words) : "-");
     if (p_model != nullptr)
       std::cout << ", with embeddings "
-                << (by_meaning ? std::to_string(by_meaning) : "-");
+                << (by_meaning ? std::to_string(by_meaning) : "-")
+                << ", embeddings alone " << (by_alone ? std::to_string(by_alone) : "-");
     std::cout << "   (" << p_cases[index].program.substr(
                                 0, p_cases[index].program.size() - 1)
               << ")\n";
@@ -899,7 +908,10 @@ auto run_manual(const std::vector<question_case> &p_cases,
     std::cout << "Ranking, with embeddings: first in " << meaning.first
               << " of " << total << ", in the first " << manual_shown << " in "
               << meaning.shown << "; " << std::fixed << std::setprecision(0)
-              << milliseconds / std::max(1, total) << " ms a query.\n";
+              << milliseconds / std::max(1, total) << " ms a query.\n"
+              << "Ranking, embeddings alone: first in " << alone.first << " of "
+              << total << ", in the first " << manual_shown << " in " << alone.shown
+              << ".\n";
   // The floor is for the words alone: it needs no model.
   if (words.first < p_floor.first || words.shown < p_floor.shown) {
     std::cout << "FAIL: below the floor (" << p_floor.first << " first, "
@@ -920,6 +932,9 @@ auto main(int p_count, char **p_arguments) -> int {
     int threads = 0;
     std::size_t orders = 1;
     bool embeddings_only = false;
+    string_type query_prefix, entry_prefix;
+    double lexical_weight = ovis::phrase::manual_embeddings{}.lexical_weight;
+    bool no_prefixes = false;
     bool no_model = false;
     bool cpu = false;
     bool compare_cpu = false;
@@ -948,6 +963,14 @@ auto main(int p_count, char **p_arguments) -> int {
         text << file.rdbuf();
         package_text = text.str();
       }
+      else if (arguments[index] == "--query-prefix" && index + 1 < arguments.size())
+        query_prefix = arguments[++index];
+      else if (arguments[index] == "--no-prefixes")
+        no_prefixes = true;
+      else if (arguments[index] == "--lexical-weight" && index + 1 < arguments.size())
+        lexical_weight = std::stod(arguments[++index]);
+      else if (arguments[index] == "--entry-prefix" && index + 1 < arguments.size())
+        entry_prefix = arguments[++index];
       else if (arguments[index] == "--embeddings-only")
         embeddings_only = true;
       else if (arguments[index] == "--no-model")
@@ -1008,6 +1031,18 @@ auto main(int p_count, char **p_arguments) -> int {
         {.location = *location, .use_gpu = !cpu, .threads = threads});
 
     std::cout << "Model: " << location->file.filename().string() << "\n";
+    // The manual only embeds: a model made for embedding can't choose. The
+    // default embedding model's prefixes unless others are given, as `ovis
+    // manual` does.
+    const auto &embedder = ovis::english::default_embedding_model();
+    if (positional[0] == "manual" && query_prefix.empty() && entry_prefix.empty() &&
+        !no_prefixes && location->file.filename() == embedder.file_name) {
+      query_prefix = embedder.query_prefix;
+      entry_prefix = embedder.entry_prefix;
+    }
+    if (positional[0] == "manual")
+      return run_manual(read_question_cases(positional[1]), &model, only, floor,
+                        query_prefix, entry_prefix, lexical_weight);
     // Loading isn't part of a question's time.
     const auto load = [](ovis::english::language_model &p_model) {
       const auto start = std::chrono::steady_clock::now();
@@ -1028,8 +1063,6 @@ auto main(int p_count, char **p_arguments) -> int {
     std::cout.unsetf(std::ios::fixed);
     if (positional[0] == "programs")
       return run_programs(read_programs(positional[1]), &model);
-    if (positional[0] == "manual")
-      return run_manual(read_question_cases(positional[1]), &model, only, floor);
     if (positional[0] == "rewrites")
       return run_rewrites(read_question_cases(positional[1]), model, only);
     if (embeddings_only)

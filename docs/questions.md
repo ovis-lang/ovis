@@ -132,17 +132,26 @@ lists every phrase by topic. The program's and its packages' `to …:` phrases a
 the `#` lines above a header are its `about`, up to two lines that read to it its examples, the package
 its origin. What a file's `use "x.h"` lines import are entries too (L10, `c_header_templates`): functions, function-like and generic macros, constants and structs, found by the name split into words and the parameters' names, titled with the C signature in Ovis's types (`phrase_template::title`), the header's comment sentence, and the program's uses of the name as examples (those it calls first). Records (`a book (record)`: fields, the traits it is), traits (`a shape (trait)`: needed and default phrases, who implements it) and a package's top-level constants (`max_sides = 12`) are entries too (L7 rest, same scan, `#` lines above as `about`, the program's lines that mention the name as examples); a package's entries end with `From NAME 1.4.0.` (`phrase_file::package_version`). Not yet: the model choosing (L5).
 
-*Embeddings (L4, `manual.cpp`), off by default (`ovis manual --embeddings`).* With a model the query
-and each entry's text (every way of saying it, then `about`; not the
-examples) are embedded, and the lexical order and the order by similarity are
-joined by reciprocal rank (`1/(10+place)`, the lexical place counting 3×),
-ties to the lexical order, so "shout" finds `in capitals` and a shared word still counts. Entry
-vectors are kept in `manual-embeddings.bin` in the model cache directory, keyed
-by the model and the entry's text: after an edit only the changed entries are
+*Embeddings (L4, `manual.cpp`), by a model made for search.* `ovis model
+pull embedding` fetches EmbeddingGemma-300M (`default_embedding_model`, 334
+MB); when it is found (`find_embedding_model`: `--embedding-model PATH`,
+beside the executable, `../share/ovis`, the cache directory) and not
+`--offline`, `ovis manual` uses it, never the chat model (`--embeddings`
+fails without it). The query and each entry's text (every way of saying it,
+then `about`; not the examples) are embedded after the model's prefixes
+(`task: search result | query: `, `title: none | text: `; another model's
+are left out), with its own pooling and special tokens (`builtin_model::embed`
+takes them from the GGUF's `ARCH.pooling_type`; a chat model's is its last
+token). The lexical order and the order by similarity are joined by
+reciprocal rank (`1/(10+place)`, the lexical place counting half,
+`manual_embeddings::lexical_weight`), ties to the lexical order, so "shout"
+finds `in capitals` and a shared word still counts. Entry vectors are kept
+in `manual-embeddings.bin` in the model cache directory, keyed by the model
+and the entry's text, one vector size to a file (another size is dropped
+when the file is written): after an edit only the changed entries are
 embedded, a package's or the program's too. A model that can't embed leaves
 the search lexical. Measured by `ovis_eval manual eval/manual-queries.txt`
-(state.md): with 3B they find nothing the words miss, so they stay off.
-CI keeps the words' floor with `--no-model`.
+(state.md). CI keeps the words' floor with `--no-model`.
 
 **`ovis fmt`** (`formatted_source`, `format.cpp`): text only, no build.
 Each code line's sigils go above it at its indentation, spaced as builds
