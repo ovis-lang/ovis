@@ -77,6 +77,8 @@ Commands:
              --for NAME|TYPE lists the phrases that take a name (set before
              --line N, else at the end of FILE) or a type; no words lists
              every phrase by topic;
+             --html DIR writes the entries as web pages (every phrase, or the
+             ones the words find), links checked;
              --embeddings also compares meanings with the model (no better yet)
   check-phrases
              whether this program's own phrases (its `to …:` blocks and
@@ -208,6 +210,8 @@ struct arguments {
   std::filesystem::path manual_in;
   // `manual --for NAME|TYPE`: the phrases that take it.
   std::string manual_for;
+  // `manual --html DIR`: write the entries as pages there.
+  std::filesystem::path manual_html;
   std::size_t fix_apply = 0;
   std::string fix_meaning;
   // For builds under CMake.
@@ -462,6 +466,8 @@ auto parse_arguments(int p_count, char **p_values) -> arguments {
       result.fix_line = value();
     else if (option == "--for")
       result.manual_for = value();
+    else if (option == "--html")
+      result.manual_html = value();
     else if (option == "--apply")
       result.fix_apply = std::stoul(value());
     else if (option == "--meaning")
@@ -2304,12 +2310,21 @@ auto manual_command(const arguments &p_arguments, const char *p_argument_zero)
     }
   }
   const auto entries = ovis::phrase::manual_search(
-      words, more, 6,
+      words, more, p_arguments.manual_html.empty() ? 6 : 0,
       {.model = model.get(),
        .cache = ovis::english::model_cache_directory() / "manual-embeddings.bin"});
   if (entries.empty()) {
     std::cout << "No phrase is about those words. `ovis manual` lists them all.\n";
     return 1;
+  }
+  if (!p_arguments.manual_html.empty()) {
+    const auto problems =
+        ovis::phrase::write_manual_html(entries, p_arguments.manual_html);
+    for (const auto &problem : problems)
+      std::cerr << "ovis: " << problem << '\n';
+    std::cout << "Wrote " << entries.size() << " phrases to " << p_arguments.manual_html.string()
+              << '\n';
+    return problems.empty() ? 0 : 1;
   }
   std::string topic;
   for (const auto &entry : entries) {

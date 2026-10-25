@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <sstream>
 
 #include <catch2/catch_test_macros.hpp>
@@ -315,4 +316,37 @@ TEST_CASE("The manual has zlib's and SQLite's entries.", "[phrase][manual][c-imp
   CHECK(has("deflate", "deflateInit("));
   CHECK(has("open", "sqlite3_open("));
   CHECK(has("ok", "Z_OK = 0"));
+}
+
+TEST_CASE("The manual is written as pages, one entry each, with its links checked.",
+          "[phrase][manual]") {
+  const auto directory = std::filesystem::temp_directory_path() / "ovis_manual_html_test";
+  std::filesystem::remove_all(directory);
+  auto every = ovis::phrase::manual_search({}, {}, 0);
+  every.push_back({.topic = "tax", .package = "shop", .pattern = "add <tax> to TOTAL",
+                   .aliases = {"tax on TOTAL"}, .about = "Adds the tax & more.",
+                   .examples = {"add tax to 5"}});
+  CHECK(ovis::phrase::write_manual_html(every, directory).empty());
+
+  const auto read = [&](const char *p_name) {
+    std::ifstream stream(directory / p_name);
+    std::stringstream text;
+    text << stream.rdbuf();
+    return text.str();
+  };
+  const auto index = read("index.html");
+  // Every entry is on the index, linked to its page.
+  std::size_t links = 0;
+  for (auto at = index.find("<li><a href="); at != std::string::npos;
+       at = index.find("<li><a href=", at + 1))
+    ++links;
+  CHECK(links == every.size());
+  CHECK(std::filesystem::exists(directory / "numbers.html"));
+  const auto package = read("shop-tax.html");
+  CHECK(package.find("Adds the tax &amp; more.") != std::string::npos);
+  CHECK(package.find("add &lt;tax&gt; to TOTAL") != std::string::npos);
+  CHECK(package.find("Also: <code>tax on TOTAL</code>") != std::string::npos);
+  CHECK(package.find("<pre>add tax to 5\n</pre>") != std::string::npos);
+
+  std::filesystem::remove_all(directory);
 }

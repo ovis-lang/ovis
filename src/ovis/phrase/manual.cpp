@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -708,6 +709,142 @@ auto check_package_examples(const std::vector<phrase_file> &p_files, std::size_t
         problems.push_back(shown + ", line " + std::to_string(item.line) + ": the example `" +
                            item.text + "` doesn't use the words of the phrase below it.");
   }
+  return problems;
+}
+
+namespace {
+
+auto html_escaped(const string_type &p_text) -> string_type {
+  string_type result;
+  for (const auto letter : p_text) {
+    switch (letter) {
+    case '&': result += "&amp;"; break;
+    case '<': result += "&lt;"; break;
+    case '>': result += "&gt;"; break;
+    case '"': result += "&quot;"; break;
+    default: result += letter;
+    }
+  }
+  return result;
+}
+
+// A page's file name: a topic's, after its package's when it has one.
+auto page_name(const manual_entry &p_entry) -> string_type {
+  string_type name = p_entry.package.empty() ? p_entry.topic : p_entry.package + "-" + p_entry.topic;
+  for (auto &letter : name)
+    if (!std::isalnum(static_cast<unsigned char>(letter)) && letter != '-' && letter != '_')
+      letter = '_';
+  return name + ".html";
+}
+
+auto html_page(const string_type &p_title, const string_type &p_body) -> string_type {
+  return "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
+         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>" +
+         html_escaped(p_title) +
+         "</title>\n<style>body{font:16px/1.5 system-ui,sans-serif;max-width:46rem;"
+         "margin:2rem auto;padding:0 1rem}code,pre{font-family:ui-monospace,monospace}"
+         "pre{background:#f4f4f4;padding:.5rem .75rem;overflow-x:auto}"
+         "h2{margin-top:2rem}.also{color:#555}</style>\n</head>\n<body>\n" +
+         p_body + "</body>\n</html>\n";
+}
+
+// The attribute values `p_name="…"` of a page.
+auto attribute_values(const string_type &p_page, const string_type &p_name)
+    -> std::vector<string_type> {
+  std::vector<string_type> values;
+  const auto opening = " " + p_name + "=\"";
+  for (auto at = p_page.find(opening); at != string_type::npos; at = p_page.find(opening, at)) {
+    at += opening.size();
+    const auto end = p_page.find('"', at);
+    if (end == string_type::npos)
+      break;
+    values.push_back(p_page.substr(at, end - at));
+    at = end;
+  }
+  return values;
+}
+
+auto read_text_file(const std::filesystem::path &p_path) -> string_type {
+  std::ifstream stream(p_path, std::ios::binary);
+  std::stringstream text;
+  text << stream.rdbuf();
+  return text.str();
+}
+
+} // namespace
+
+auto write_manual_html(const std::vector<manual_entry> &p_entries,
+                       const std::filesystem::path &p_directory)
+    -> std::vector<string_type> {
+  std::filesystem::create_directories(p_directory);
+  // The entries of each page, in the order they came (the library's order
+  // keeps a topic together).
+  std::vector<string_type> pages;
+  std::map<string_type, std::vector<const manual_entry *>> by_page;
+  for (const auto &entry : p_entries) {
+    const auto name = page_name(entry);
+    if (!by_page.contains(name))
+      pages.push_back(name);
+    by_page[name].push_back(&entry);
+  }
+  const auto heading_of = [](const manual_entry &p_entry) {
+    return p_entry.package.empty() ? p_entry.topic : p_entry.topic + ", from " + p_entry.package;
+  };
+  string_type index = "<h1>The Ovis manual</h1>\n<p>" + std::to_string(p_entries.size()) +
+                      " phrases in " + std::to_string(pages.size()) + " topics.</p>\n";
+  for (const auto &name : pages) {
+    const auto &entries = by_page[name];
+    index += "<h2><a href=\"" + name + "\">" + html_escaped(heading_of(*entries.front())) +
+             "</a></h2>\n<ul>\n";
+    string_type body = "<p><a href=\"index.html\">The Ovis manual</a></p>\n<h1>" +
+                       html_escaped(heading_of(*entries.front())) + "</h1>\n";
+    for (std::size_t number = 0; number < entries.size(); ++number) {
+      const auto &entry = *entries[number];
+      const auto anchor = "e" + std::to_string(number + 1);
+      index += "<li><a href=\"" + name + "#" + anchor + "\">" + html_escaped(entry.pattern) +
+               "</a></li>\n";
+      body += "<h2 id=\"" + anchor + "\"><code>" + html_escaped(entry.pattern) + "</code></h2>\n";
+      if (!entry.about.empty())
+        body += "<p>" + html_escaped(entry.about) + "</p>\n";
+      if (!entry.aliases.empty()) {
+        body += "<p class=\"also\">Also: ";
+        for (std::size_t other = 0; other < entry.aliases.size(); ++other)
+          body += (other ? ", " : "") + ("<code>" + html_escaped(entry.aliases[other]) + "</code>");
+        body += "</p>\n";
+      }
+      if (!entry.examples.empty()) {
+        body += "<pre>";
+        for (const auto &example : entry.examples)
+          body += html_escaped(example) + "\n";
+        body += "</pre>\n";
+      }
+    }
+    index += "</ul>\n";
+    std::ofstream(p_directory / name, std::ios::binary) << html_page(heading_of(*entries.front()), body);
+  }
+  std::ofstream(p_directory / "index.html", std::ios::binary) << html_page("The Ovis manual", index);
+
+  // Check what was written, not what was meant: every link goes to a page
+  // that is there and, with `#`, to an id on it.
+  std::vector<string_type> problems;
+  std::vector<string_type> written = {"index.html"};
+  written.insert(written.end(), pages.begin(), pages.end());
+  std::map<string_type, string_type> texts;
+  for (const auto &name : written)
+    texts[name] = read_text_file(p_directory / name);
+  for (const auto &name : written)
+    for (const auto &link : attribute_values(texts[name], "href")) {
+      const auto hash = link.find('#');
+      const auto target = link.substr(0, hash);
+      const auto found = texts.find(target);
+      if (found == texts.end())
+        problems.push_back(name + ": the link " + link + " goes to a page that isn't there.");
+      else if (hash != string_type::npos) {
+        const auto ids = attribute_values(found->second, "id");
+        if (std::ranges::find(ids, link.substr(hash + 1)) == ids.end())
+          problems.push_back(name + ": the link " + link + " goes to an id that isn't there.");
+      }
+    }
   return problems;
 }
 

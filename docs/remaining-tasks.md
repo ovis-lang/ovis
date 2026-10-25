@@ -89,7 +89,7 @@ never writing). The owner dropped all editor work and the VS Code
 extension on 2026-10-24: the smart manual is the help.
 
 - [ ] L7 rest (records, traits, top-level values as entries, the package's
-  version), L5–L6 (R1, version 0.1.0, is done). L1–L4,
+  version), L5 (R1, version 0.1.0, and L6, `manual --html`, are done). L1–L4,
   L8 (the names in scope at a line, `--for`), L9 (a package's `# example:`
   lines, checked by `check` and `release`) and L10 (C's entries: functions,
   macros, constants and structs of the `use`d headers, by name split into
@@ -152,7 +152,7 @@ Done: ovisup, relocatable packages, the release workflow
   [proposals/manual-and-editor.md](proposals/manual-and-editor.md)):
   CMakeLists.txt and ovisup say 0.1.0, kept one by a test.
 - [ ] The tag `v0.1.0`, the first `stable`: nightly should install
-  everywhere first (and the manual's L5–L6 and L7 rest, if the release
+  everywhere first (and the manual's L5 and L7 rest, if the release
   is to carry them).
 - [ ] macOS x86-64 packages, if anyone needs them (a `macos-15-intel`
   runner); musl or older-glibc Linux packages (build in an older container)

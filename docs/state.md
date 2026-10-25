@@ -1,6 +1,6 @@
 # Project state
 
-Last updated: 2026-10-25 (R1, version 0.1.0; L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
+Last updated: 2026-10-25 (L6, `ovis manual --html`; R1, version 0.1.0; L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
 release packages and ovisup)
 (branch `claude/llm-matching-failure-hypothesis-xwp3nu`).
 Last dreamed: 2026-10-25 at 74eea1a (manual steps L1–L4, L7 and L8 archived).
@@ -41,7 +41,7 @@ readings only where a line is unclear. The design is in
 
 ## Verified
 
-- `./build/test_ovis`: 253 test cases (250 pass, 3 skipped) and 3507 assertions pass. Three cases are skipped unless
+- `./build/test_ovis`: 254 test cases (251 pass, 3 skipped) and 3516 assertions pass. Three cases are skipped unless
   `OVIS_TEST_MODEL` is set. The C-library cases skip themselves when
   libclang, zlib or SQLite headers are missing. The `[docs]` case keeps the
   tracking documents under 500 lines and checks their links.
@@ -372,6 +372,7 @@ in names`) is the same before the numbers work. The CI floors still hold (questi
 
 | Commit | Summary |
 | --- | --- |
+| (P2) | **L6, `ovis manual --html DIR`**: `write_manual_html` writes `index.html` (every entry under its topic) and one page per topic (per package and topic), an anchor per entry with its sentence, other ways of saying it and examples; with words, only the entries found. The links are checked in the files written (a page and an id must be there), problems go to stderr and exit 1; `manual_test`. Test cases 254 (251 pass, 3 skipped) |
 | (P2) | **R1, version 0.1.0**: `CMakeLists.txt` and `tools/ovisup` say 0.1.0 (they said 0.0.1, the version of the first tag), and a test (`ovisup_test`) fails if the two differ; deployment.md already named 0.1.0. Done at the owner's word before L5, L6 and L7's rest; the tag `v0.1.0` (the first `stable`) is not made yet. Test cases 253 (250 pass, 3 skipped) |
 | (P2) | **L10, C's entries in `ovis manual`**: `c_header_templates` reads the headers a file's `use "x.h"` lines name (all the program's files when `--in` is not a file) with `import_c_library` and makes an entry for each function and function-like macro (generic ones too), constant and struct: found by its name split into words (`deflateInit` as `deflate init`) and its parameters' names (`c_function::parameter_names`, new), shown as its signature in Ovis's types (`phrase_template::title`: `ovt_add(a: a whole number, b: a whole number) gives a whole number`), the header's first comment sentence, `From x.h.`, and up to two lines of the program that use the name; the ones the program calls come first. Entries are embedded with `--embeddings` by their text, so a header is embedded once. Test cases 252 (249 pass, 3 skipped), 3505 assertions (the test library; zlib and SQLite skip without headers) |
 | (P2) | **L9, a package's `# example:` lines**: a comment `# example: LINE` above a definition is an example, shown first by `ovis manual` (`program_phrase_templates`, not part of `about`); `check_package_examples` compiles them with no model as a `main` probe whose lines keep their line numbers in the package file, so a problem cites `FILE (examples), line N`, and above a `to …:` header the example must use the header's words; `ovis release` runs it after the package reads (`read_package`), and `ovis check` in a package with no `main.ovis` does the same without tagging. Test cases 250 (247 pass, 3 skipped), 3488 assertions |

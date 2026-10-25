@@ -244,7 +244,7 @@ embeddings by enough to pay for its time.
 | L10 | C's entries (§2.5): what `use "x.h"` imports, signatures beside Ovis types, doc comments from libclang, names split into words, cached by header contents | the entries of the test library, zlib and SQLite (skipped without their headers) | M |
 | L4 | Embeddings for the manual (cached by library hash, tree hash, entry) | `eval/manual-queries.txt`, `ovis_eval manual` | M |
 | L5 | `choose` among the entries; measured against L4 | the same eval; CI floor without the model | S |
-| L6 | `ovis manual --html DIR` | pages for every entry, links checked | S |
+| L6 (done) | `ovis manual --html DIR` | pages for every entry, links checked | S |
 | R1 | **Version 0.1.0**, when every step above is done: `CMakeLists.txt` and `ovisup_version` say 0.1.0 (one version for the toolchain from now on, checked by a test); state.md and deployment.md updated; then the tag `v0.1.0`, which `release.yml` publishes as the first `stable` | the test that the two versions agree; `release.yml` refuses a tag that isn't the version; ovisup installs `stable` | S |
 
 Order: L1–L3, L7–L8, L10 (useful without the model), then L4–L5 (the

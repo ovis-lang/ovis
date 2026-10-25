@@ -356,6 +356,15 @@ auto manual_search(const std::vector<string_type> &p_words,
                    const manual_embeddings &p_embeddings = {})
     -> std::vector<manual_entry>;
 
+// The manual as web pages in `p_directory` (L6, `ovis manual --html DIR`):
+// `index.html` lists every entry under its topic, and one page per topic (per
+// package and topic) has each entry with its sentence, other ways of saying
+// it and examples. Links are checked once the files are written: the problems
+// (a link to a page or an anchor that isn't there), none when all are right.
+auto write_manual_html(const std::vector<manual_entry> &p_entries,
+                       const std::filesystem::path &p_directory)
+    -> std::vector<string_type>;
+
 // Reads a program in phrases. Unclear spans are settled by their `Read as:`
 // line, else by `p_model` choosing between readings that type-check (written
 // back as a `Read as:` line), else reported to the author. Without a model
