@@ -26,13 +26,13 @@ a record lacks `comes before` / `is the same as`, `position of` and `count
 of` for any equatable type, lists of records with `text of`, and `a book is
 comparable:` (also `equatable`, `showable`). See state.md history,
 architecture-spec §4–§5 and
-[dream/remaining-tasks](dream/remaining-tasks/INDEX.md). New, small:
+[dream/remaining-tasks](dream/remaining-tasks/INDEX.md). Nothing is left open.
 
 ### M4: user traits and impls
 
 Done (types.md §2): M4.1–M4.4, and one-line phrase bodies (M5). See state.md history, architecture-spec §5–§6
-and [dream/remaining-tasks](dream/remaining-tasks/INDEX.md). Left from it
-(designs decided 2026-10-19, state.md decisions):
+and [dream/remaining-tasks](dream/remaining-tasks/INDEX.md). Nothing is left open
+(designs decided 2026-10-19, state.md decisions).
 
 ### Defer: `at the end`
 
@@ -79,6 +79,22 @@ and map stay until `item` is inlined and the table is packed (state.md,
 
 ## P2: model and tooling
 
+### A manual and checking a line when it is done
+
+Accepted: [proposals/manual-and-editor.md](proposals/manual-and-editor.md)
+(the owner's idea, 2026-10-23; every recommendation taken).
+`about:`/`example:` beside each phrase (checked by tests), and `ovis
+manual` (lexical, embeddings, then the model choosing among real entries,
+never writing). The owner dropped all editor work and the VS Code
+extension on 2026-10-24: the smart manual is the help.
+
+- Done: L1–L10 and R1, finished tasks in
+  [dream/remaining-tasks](dream/remaining-tasks/INDEX.md).
+- [ ] Queries for the program's, packages' and C's entries (§2.6), and a
+  floor with the embedding model if CI gets it (334 MB, cacheable).
+- [ ] Bundle the embedding model in the release packages, or keep `ovis
+  model pull embedding` (deployment.md).
+
 ### Projects without CMake
 
 Built: [proposals/projects.md](proposals/projects.md) (the owner's
@@ -88,7 +104,7 @@ author's own CMake file); Ovis builds with `cc` when it can and otherwise
 generates the CMake project into `build/` each build. `ovis new`, `ovis
 build`/`run` with no arguments.
 
-- [ ] `check`/`fix`/`lsp` of a CMake-built project before its first build
+- [ ] `check`/`fix` of a CMake-built project before its first build
   don't know its targets' include folders (read from the last configure).
 - [ ] CI: `examples/project` on macOS (pkg-config's zlib there).
 
@@ -109,7 +125,7 @@ built `--locked`, as source; `ovis add`/`update`/`vendor`/`release`.
 - [ ] A package's `phrases/` folder scoped to the files that see it.
 - [ ] Exported top-level values (constants) from packages.
 - [ ] A package in a subfolder of a repository (`sub/vX.Y.Z` tags).
-- [ ] `ovis lsp` and `ovis fix --line` with packages (they read the
+- [ ] `ovis fix --line` with packages (they read the
   program's own files only).
 - [ ] A phrase nobody calls reads an untyped parameter as a whole number
   (`to note (t):` with `an entry with words t` fails): libraries must type
@@ -125,8 +141,8 @@ Done: ovisup, relocatable packages, the release workflow
 
 - [ ] Merge to main so the workflow's first run publishes `nightly`; fix
   what the macOS and arm64 Linux packaging find there.
-- [ ] Tag `v0.1.0` (the version in CMakeLists.txt) once nightly installs
-  everywhere, so `stable` exists.
+- [ ] The tag `v0.1.0`, the first `stable`: nightly should install
+  everywhere first (the manual's L5 and L7 rest are done).
 - [ ] macOS x86-64 packages, if anyone needs them (a `macos-15-intel`
   runner); musl or older-glibc Linux packages (build in an older container)
   if glibc 2.39 proves too new.

@@ -10,7 +10,6 @@
 #include <nlohmann/json.hpp>
 
 #include <ovis/phrase/front_end.hpp>
-#include <ovis/phrase/language_server.hpp>
 #include <ovis/phrase/templates.hpp>
 
 // Problems as tools see them (proposals/quick-fix.md): diagnostics with
@@ -130,94 +129,6 @@ TEST_CASE("Check, and take a fix, from the command line.", "[phrase][fix]") {
   CHECK_THAT(output_of("echo 1 | " + ovis + " run " + piped.string() +
                        " --offline"),
              !ContainsSubstring("What does"));
-}
-
-namespace {
-
-auto framed(const nlohmann::json &p_message) -> std::string {
-  const auto body = p_message.dump();
-  return "Content-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
-}
-
-// The messages a server wrote, in order.
-auto messages_of(const std::string &p_output) -> std::vector<nlohmann::json> {
-  std::vector<nlohmann::json> result;
-  for (std::size_t at = 0; (at = p_output.find("Content-Length: ", at)) !=
-                           std::string::npos;) {
-    const auto length = std::stoul(p_output.substr(at + 16));
-    const auto body = p_output.find("\r\n\r\n", at) + 4;
-    result.push_back(nlohmann::json::parse(p_output.substr(body, length)));
-    at = body + length;
-  }
-  return result;
-}
-
-} // namespace
-
-TEST_CASE("Serve an editor: problems, quick fixes, hover.", "[phrase][fix][lsp]") {
-  const auto path = program_file("lsp", unclear);
-  const auto uri = "file://" + path.string();
-  const auto with_meaning = "x = 1\n@[meaning: show x]\nshow it\n";
-  const auto meant = program_file("lsp-meant", with_meaning);
-  const auto meant_uri = "file://" + meant.string();
-  std::stringstream input;
-  input << framed({{"jsonrpc", "2.0"}, {"id", 1}, {"method", "initialize"}, {"params", nlohmann::json::object()}})
-        << framed({{"jsonrpc", "2.0"},
-                   {"method", "textDocument/didOpen"},
-                   {"params", {{"textDocument", {{"uri", uri}, {"text", unclear}}}}}});
-  std::stringstream first;
-  ovis::phrase::serve_language(input, first, {});
-  const auto opened = messages_of(first.str());
-  REQUIRE(opened.size() == 2);
-  CHECK(opened[0]["result"]["capabilities"]["hoverProvider"] == true);
-  // The problem, where it is in the editor (from 0), with its fixes.
-  const auto problems = opened[1]["params"]["diagnostics"];
-  REQUIRE(problems.size() == 1);
-  CHECK(problems[0]["range"]["start"] == nlohmann::json{{"line", 3}, {"character", 5}});
-  CHECK(problems[0]["code"] == "unclear");
-  REQUIRE(problems[0]["data"]["fixes"].size() == 9);
-
-  // A quick fix writes the meaning above the line; hover shows a meaning.
-  std::stringstream again;
-  again << framed({{"jsonrpc", "2.0"},
-                   {"method", "textDocument/didOpen"},
-                   {"params", {{"textDocument", {{"uri", uri}, {"text", unclear}}}}}})
-        << framed({{"jsonrpc", "2.0"},
-                   {"method", "textDocument/didOpen"},
-                   {"params", {{"textDocument", {{"uri", meant_uri}, {"text", with_meaning}}}}}})
-        << framed({{"jsonrpc", "2.0"},
-                   {"id", 2},
-                   {"method", "textDocument/codeAction"},
-                   {"params",
-                    {{"textDocument", {{"uri", uri}}},
-                     {"range", problems[0]["range"]},
-                     {"context", {{"diagnostics", problems}}}}}})
-        << framed({{"jsonrpc", "2.0"},
-                   {"id", 3},
-                   {"method", "textDocument/hover"},
-                   {"params", {{"textDocument", {{"uri", meant_uri}}}, {"position", {{"line", 2}, {"character", 0}}}}}})
-        << framed({{"jsonrpc", "2.0"}, {"id", 4}, {"method", "shutdown"}})
-        << framed({{"jsonrpc", "2.0"}, {"method", "exit"}});
-  std::stringstream second;
-  CHECK(ovis::phrase::serve_language(again, second, {}) == 0);
-  nlohmann::json actions, hover;
-  for (const auto &message : messages_of(second.str())) {
-    if (message.value("id", 0) == 2)
-      actions = message["result"];
-    if (message.value("id", 0) == 3)
-      hover = message["result"];
-  }
-  REQUIRE(actions.size() == 9);
-  nlohmann::json average;
-  for (const auto &action : actions)
-    if (action["title"] == "Read as: average of numbers")
-      average = action;
-  REQUIRE(!average.is_null());
-  const auto edit = average["edit"]["changes"][uri][0];
-  CHECK(edit["newText"] == "@[meaning: show average of numbers]\n");
-  CHECK(edit["range"]["start"] == nlohmann::json{{"line", 3}, {"character", 0}});
-  CHECK_THAT(hover["contents"]["value"].get<std::string>(),
-             ContainsSubstring("show x"));
 }
 
 TEST_CASE("Offer phrases with a line's words when nothing fits.", "[phrase][fix]") {

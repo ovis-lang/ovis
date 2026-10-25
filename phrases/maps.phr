@@ -3,12 +3,26 @@
 # text to whole numbers` (or `dictionary of …`).
 
 expr  [an] empty map of {k: type} to {v: type}         : map  => (map-new $k $v)
+      about: A new map with no entries, from keys of one type to values of another.
+      example: ages = an empty map of text to whole numbers
       alias: a new map of {k} to {v}
 stmt  set {m: map} at {k: any} to {v: any}                     => (map-put $m $k $v)
+      about: Stores the value under the key, replacing any earlier one.
+      example: set ages at "ann" to 34
       alias: put {v} at {k} in {m}
 expr  {m: map} at {k: any}                             : any  => (map-get $m $k)
+      about: The value stored under the key.
+      example: show ages at "ann"
       alias: the value at {k} in {m}
 expr  {m: map} has [an entry for] {k: any}             : bool => (map-has $m $k)
+      about: True when the map has an entry under the key.
+      example: show ages has "bob"
 stmt  remove the entry for {k: any} from {m: map}              => (map-remove $m $k)
+      about: Takes the key and its value out of the map.
+      example: remove the entry for "ann" from ages
 expr  the keys of {m: map}                             : any  => (map-keys $m)
+      about: The keys of the map as a list, in the order they were added.
+      example: keys = the keys of squares
 expr  number of entries in {m: map}                    : int  => (len $m)
+      about: How many entries the map has.
+      example: show number of entries in ages

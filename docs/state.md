@@ -1,9 +1,9 @@
 # Project state
 
-Last updated: 2026-10-22 (phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
+Last updated: 2026-10-25 (L5, the model's sure pick first in `ovis manual`; L4 with EmbeddingGemma; L6, `ovis manual --html`; R1, version 0.1.0; L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
 release packages and ovisup)
-(branch `claude/llm-matching-failure-hypothesis-xwp3nu`).
-Last dreamed: 2026-10-22 at 979d641 (phrases in sight archived).
+(branch `claude/eloquent-curie-bbpub4`).
+Last dreamed: 2026-10-25 at 45455c9 (the manual's L7 rest, L9, L10 and R1 history, edit candidates and rewrites measured archived).
 [dream/state](dream/state/INDEX.md).
 
 Ovis is a compiler whose source code is plain English: lines of phrases,
@@ -34,14 +34,14 @@ readings only where a line is unclear. The design is in
 | Multi-file programs, nested modules, helper-file rule | Built, tested (`examples/shop`) |
 | Built-in llama.cpp model, embedding, lookup, `ovis model pull` (3B) | Built; determinism tested with a tiny random model |
 | Model daemon (`ovis model serve`, started by builds, in-process fallback) | Built; tested with a scripted model and, `[model]`, started by `ovis` |
-| Deployment ([deployment.md](deployment.md)): `ovisup` sets up, updates (`stable`, `nightly`, pinned versions, `ovis +T`) and uninstalls; `tools/package.sh` makes relocatable packages with LLVM, libclang and clang's headers inside; `release.yml` publishes tags and nightly; `ovis --version` | Built, tested (`ovisup_test`); a Linux x86-64 package installed by ovisup ran the examples in a clean `ubuntu:24.04` container; on GitHub, nightly published from `main`; the first tag `v0.0.1` was refused because CMakeLists.txt said 0.1.0, now 0.0.1 |
+| Deployment ([deployment.md](deployment.md)): `ovisup` sets up, updates (`stable`, `nightly`, pinned versions, `ovis +T`) and uninstalls; `tools/package.sh` makes relocatable packages with LLVM, libclang and clang's headers inside; `release.yml` publishes tags and nightly; `ovis --version` | Built, tested (`ovisup_test`); a Linux x86-64 package installed by ovisup ran the examples in a clean `ubuntu:24.04` container; on GitHub, nightly published from `main`; version 0.1.0 in CMakeLists.txt and ovisup (R1), the tag `v0.1.0` not yet made |
 | Projects ([projects.md](projects.md), J1–J8): `ovis.toml` (a TOML subset), `ovis new`/`init`, commands with no program; a project's C files and pkg-config built by cc; git, path and cmake tables through a CMake project generated into `build/` each build; `ovis.lock` pins git tags; `ovis update`, `ovis cmake`; the toolchain line in ovisup's shim | Built, tested (`project_test`, `project_build_test`, `project_cmake_test`, `ovisup_test`, `examples/project`) |
 | Packages on git ([projects.md](projects.md), H1–H9): versions as tags, minimal version selection per line, ovis.lock with commits and tree hashes, a read-only cache and `vendor/`; packages read locked with the program; scope per file (own + direct dependencies), Core names per package, two lines of one package side by side; `NAME's phrase`; nested `internal/` (S4, programs too); the orphan rule; a package's C and one C library per program; `ovis add`/`remove`/`update`/`tree`/`fetch`/`vendor`/`release` | Built, tested (`packages_test`, with git repositories the test makes) |
 | GPU (Metal etc.) | On by default, `--cpu` to turn off. Measured by the owner on a Mac (M0.5, below) |
 
 ## Verified
 
-- `./build/test_ovis`: 240 test cases and 3063 assertions pass. Three cases are skipped unless
+- `./build/test_ovis`: 256 test cases (253 pass, 3 skipped) and 3544 assertions pass. Three cases are skipped unless
   `OVIS_TEST_MODEL` is set. The C-library cases skip themselves when
   libclang, zlib or SQLite headers are missing. The `[docs]` case keeps the
   tracking documents under 500 lines and checks their links.
@@ -213,35 +213,13 @@ Done (S1–S5): the measurements are in
 
 ## Edit candidates measured
 
-`eval/wording-questions.txt`: 28 near misses (a word left out, an extra
-joining word, a word spelt like the phrase's, built-in forms, fields).
-3B, one order, before → after edit candidates: right 14 → 22 of 28 (every
-confident pick right); `questions.txt` 24 → 24 of 26; `hard-questions.txt`
-12 → 12 of 20. Ranking (`--no-model`): near misses first 13 → 21, shown
-15 → 23. Tried and dropped: replacing a word by any phrase word (`median`
-became `average` confidently), a single question of 9 (cut right readings
-the run-off kept), dropping words with meaning (`w's age in months` read
-as `w's age` at 86%). Two edits (a verb put first, the joining words
-before the value made `to`/`by`): wording ranking first 21 → 23, shown
-23 → 25 of 28 (`w's age is now 13`, `goes to 14`); the other sets
-unchanged; CI floor raised. Left to rewrites: word order, `sort out`,
-`the order of`.
+Near misses 14 → 22 of 28 right with 3B; the runs and what was dropped are in
+[dream/state](dream/state/INDEX.md). CI keeps the wording floor.
 
 ## Rewrites measured
 
-`ovis run` through the daemon, 4 CPUs, 3B (7B in brackets). A rewrite
-takes 2.2–3.1 s (5.3–7 s); the first read of its system message (~1500
-tokens, the phrase list) takes ~20 s (47 s) once, then its state is
-loaded from the prompt cache (32 MB). Lines no reading fitted (the
-records probes): 3B rewrote right `winnie's age becomes 13`, `make
-winnie's age 14`, `double winnie's age`, `the_car's owner turns 13` (set
-its owner's age), `give the car 2 more wheels`; refused, so reported,
-`remove winnie from people`, `in months`, `is a teenager`, `names of
-people`, `the oldest person`. 7B also got `is a teenager` (age between 13
-and 19), `the oldest person` and `the number of wheels the_car has`; its
-one wrong rewrite (`turns 13` as `increase … by 1`) was refused. No wrong
-rewrite was kept by either. Asked again with the refusal's reason, 3B
-wrote the same in 4 of 5, so there is one try.
+A rewrite takes 2.2–3.1 s with 3B through the daemon (7B 5.3–7 s); no wrong
+rewrite was kept by either. The probes, line by line: [dream/state](dream/state/INDEX.md).
 
 ## Phrase front end: programs measured
 
@@ -255,6 +233,70 @@ both right; `masked with` became an alias after 3B read it as `with bit 15
 set`. The one ranking miss (`number of names` read as `number of items
 in names`) is the same before the numbers work. The CI floors still hold (questions: right reading first in 11 of
 24, shown in 24; wording 23 and 25).
+
+## Manual measured
+
+`ovis_eval manual eval/manual-queries.txt` (34 queries far from the
+phrases' words), 4 CPUs, 2026-10-25: where the entry meant comes, first /
+in the first 5, and the time a query once the entries are cached (each
+model embeds the 171 once, in 1–20 s).
+
+| Embeddings | Joined, words 3× | Alone | Per query |
+| --- | --- | --- | --- |
+| None (the words) | 13 / 21 | — | — |
+| 3B (Qwen2.5-Coder, last token; L4) | 13 / 21 | — | 0.5 s |
+| bge-small-en-v1.5 (37 MB) | 17 / 22 | 18 / 24 | 56 ms |
+| nomic-embed-text-v1.5 (146 MB) | 16 / 23 | 15 / 26 | 0.2 s |
+| EmbeddingGemma-300M (334 MB) | 19 / 24 | 23 / 33 | 50 ms |
+| Qwen3-Embedding-0.6B (639 MB) | 18 / 24 | 24 / 31 | ~0.2 s |
+
+Each with the prefixes its authors give (Qwen3 an instruction).
+EmbeddingGemma joined with the words counting 0.25 or 0.5: **25 / 33**
+(46 ms); at 1, 19 / 31. A model made for search reaches what the words
+miss (`trimmed`, `reversed`, `rounded down`, `a copy of`, `in hex`); 3B's
+vectors did not. So the words now count half and `ovis manual` uses
+EmbeddingGemma when it is pulled. The weight was picked on these 34
+queries.
+
+Held out (`eval/manual-held-out.txt`, 30 queries written after the weight
+was chosen, about entries the first set doesn't cover), first / in the
+first 5, no prefixes but EmbeddingGemma's:
+
+| Embeddings | Joined, words ½ | Alone |
+| --- | --- | --- |
+| None (the words) | 1 / 10 | — |
+| bge-small-en-v1.5 | 10 / 19 | 13 / 20 |
+| nomic-embed-text-v1.5 | 9 / 21 | 12 / 21 |
+| EmbeddingGemma-300M | 12 / 24 (words ¼: 13 / 24; 1: 10 / 19; 3: 5 / 15) | 15 / 24 |
+| Qwen3-Embedding-0.6B | 15 / 24 | 19 / 25 |
+
+So embeddings hold up far from the words, and the weight was partly fitted:
+here the words cost 3 firsts, on the first set they gave 2. It stays ½
+(over both sets ½ gives 37 of 64 first, ¼ and alone 38): not tuned on
+these. Qwen3 reads better but is twice the size (639 MB) and ~0.2 s a
+query on 4 CPUs once cached (EmbeddingGemma ~60 ms; the first search
+embeds the 171 entries, 20 s against 6 s). Each model drops another's
+vectors from the cache file (one size to a file). Decided (owner,
+2026-10-25): EmbeddingGemma ships; Qwen3 is the switch if its licence or
+reading matters more than 3× the time.
+
+L5, the chat model choosing among the first 5 (`ovis_eval manual
+--choose-model`, 3B on 4 CPUs, after EmbeddingGemma joined with the words),
+first / in the first 5:
+
+| | 34 queries | Held out (30) |
+| --- | --- | --- |
+| The search (EmbeddingGemma and words) | 25 / 33 | 12 / 24 |
+| Its pick always first | 21 / 33 | 12 / 24 |
+| Its pick first only when sure (60%, 30 points ahead) | **28 / 33** | **16 / 24** |
+
+3B is seldom sure (most picks 25–50%), and its unsure picks undo the
+search's right firsts as often as they fix them. Its sure picks (7 of 64,
+64–90%) were all right and none moved a right first entry down: `in
+capitals`, `average of`, `as text`, `squared`, `last item of`, `remove
+item`, `number of entries in`. "None" was likeliest once. ~2.9 s a query
+once loaded (the daemon keeps it; ~6 s with the start). So `ovis manual`
+asks the model when there is one and moves only a sure pick.
 
 ## Not verified / known gaps
 
@@ -331,6 +373,8 @@ in names`) is the same before the numbers work. The CI floors still hold (questi
 | 2026-10-21 | **Projects** ([proposals/projects.md](proposals/projects.md)), every recommendation: `ovis.toml` (a TOML subset) stays the one source of truth, C dependencies included; `cc` when no dependency needs CMake, otherwise a CMake project generated into `build/` each build, never edited; the author's own CMake file with its targets listed in `ovis.toml`; git dependencies pinned in the project's `ovis.lock`. |
 | 2026-10-21 | **Packages** ([proposals/packages.md](proposals/packages.md)), every recommendation: a package is a git repository, versions `vX.Y.Z` tags, the URL its name; minimal version selection, one version per major line (0.x: per minor); lines coexist as separate packages with distinct types; one version of a C library per program; the orphan rule for impls, the root included; only direct dependencies' phrases in scope, `NAME's phrase` to say which; dependencies built `--locked`, as source with a Core cache; exported unless under `internal/`. |
 | 2026-10-21 | **Phrases in sight** ([proposals/phrase-scope.md](proposals/phrase-scope.md)), every recommendation: the ranking shortcut takes a reading adding at most one content word; a file sees a package's phrases only with `use NAME`; a dependency's phrase is offered only when it shares a word with the span; nested `internal/` folders scope a program's (and a package's) phrases to their parent folder; a near-100 sweep in CI. |
+| 2026-10-25 | **The manual's embedding model**: EmbeddingGemma-300M (`ovis model pull embedding`), the best measured for its time and size, under the Gemma terms; Qwen3-Embedding-0.6B (Apache 2.0) reads a held-out set better (19 of 30 first alone, against 15) but takes 3× the time a query and twice the room. The words count half. |
+| 2026-10-23 | **Manual and editor** ([proposals/manual-and-editor.md](proposals/manual-and-editor.md)), every recommendation: the model orders real manual entries and never writes an explanation; the library's documentation is `about:`/`example:` lines in the `.phr` files, checked by tests; the program's, packages' and C's own words are documented by their comments and their uses; in the editor the model's reading is a hint with a quick fix, and only a build writes sigils by itself; no completion while typing; a line is checked when the cursor leaves it or Enter ends it. |
 
 ## Lessons learned
 
@@ -371,15 +415,8 @@ in names`) is the same before the numbers work. The CI floors still hold (questi
 
 | Commit | Summary |
 | --- | --- |
-| … | Earlier history: [dream/state](dream/state/INDEX.md) (to deployment, projects J1–J8 and packages H1–H9) |
-| (P1) | **No fix the model turned down**: when the model was asked and settled nothing, a report and its fixes (`ovis fix`, the prompt in `run`, the editor) offer only the readings it put above "none of these", likeliest first (`question_asker::not_rejected`); if none, "The model found no reading that means the same; write it in other words." and phrases to try; offline, every reading as before; `question_test` |
-| (P1) | **A name of several words in an unclear line is one argument**: `unknown_candidates` took `split some line by ","` word by word, so `some line` was lost and every reading was of `","` alone (`ask "," for a line`; the model picked one and the program showed `,`); now the longest name in scope there is one argument (`some line split by ","` first), and "Phrases with these words" leaves out its words; `question_test` |
-| (P1) | **S5, kept measured** ([proposals/phrase-scope.md](proposals/phrase-scope.md)): CI ranks questions.txt and wording-questions.txt with 100 near phrases before every case (floors 11/24, 22/24); `ovis check-phrases --dependencies` reads the program by the ranking alone with and without each direct dependency in sight and lists the lines that read, ask or are offered readings differently (`check_dependency_phrases`, `program_result::core_lines`, `package_core_suffix` public); `ovis add` prints it for the new package; `packages_test` |
-| (P1) | **S4, nested `internal/`** ([proposals/phrase-scope.md](proposals/phrase-scope.md)): what a file under `X/internal/` defines is seen by the files under `X/` alone, in packages and folder programs (`internal_folder`, `own_sees` in `load_package_files`/`load_phrase_program`, which now set `sees`; a program with an internal/ below its top reads scoped, its own internal files `#X/internal`); a line only another folder's internal/ reads is an `internal` problem, not a question; `packages_test` |
-| (P1) | **S3, a dependency's phrase needs a shared word** ([proposals/phrase-scope.md](proposals/phrase-scope.md)): `vocabulary::is_dependency`; `unknown_candidates` offers a dependency's phrase only if a word of meaning of the span is the same as, or shares a 4-letter start with, one of its words (`phrase_words`, shared with edits); the library's and the program's own still by type; `ovis_eval --package`, `sweep.sh OUT package`; `question_test` |
-| (P1) | **S2, `use NAME`** ([proposals/phrase-scope.md](proposals/phrase-scope.md)): a file (a package's too) sees a direct dependency's phrases and records only with a top-level `use NAME` (`line_shape::use_package`; `main.cpp` gives files only their own package in `sees`); a line only an unused dependency reads is a `needs_use` problem (`diagnostic::packages`), not a question; `ovis fix` writes the `use` lines, `ovis add`/`remove` edit `main.ovis`; `NAME's …` needs no `use`; `packages_test` |
-| (P1) | **S1, the shortcut adds no meaning** ([proposals/phrase-scope.md](proposals/phrase-scope.md)): `candidate::added_words` (the reading's words of meaning less the arguments' and the span's), `shortcut_added_words` = 1 in `ranking_shortcut`; edits keep it; `question_test` |
-| (P1) | **Phrases in sight measured**: `eval/scope/` (`distractors.py`, `prefix_cases.py`, `sweep.sh`) and [proposals/phrase-scope.md](proposals/phrase-scope.md) (accepted, S1–S5); no code changed |
-| (P2) | **Version 0.0.1**: `CMakeLists.txt` and `tools/ovisup` say 0.0.1, the version of the first tag; `release.yml` had refused `v0.0.1` against 0.1.0 |
-| (P2) | **Releases made on GitHub**: `release.yml` adds the packages to a release that already exists (one made on the Releases page pushes its tag) instead of failing to create it |
-| (P2) | **CMake builds after a change**: when the generated project changes (ovis.toml, ovis.lock, ovis), `build_with_cmake` configures it and builds `--clean-first` instead of leaving it to make, whose whole-second file times on macOS kept a dependency's old objects after `ovis update` (flaky `project_cmake_test` on CI); the test now dates the last build an hour ahead to reproduce that everywhere |
+| (P2) | **L5, the model choosing in `ovis manual`**: `manual_choice_probabilities` asks the chat model (one `choose`) which of the first 5 entries found (pattern and `about`) does what the query asks, or "none of these"; `manual_choose` moves its pick first only when sure (60%, 30 points ahead), else the order stands; `ovis manual` uses it with the daemon's model when there are words, not `--offline` or `--html`. `ovis_eval manual --choose-model FILE` measures it: first 28 of 34 against 25, held out 16 of 30 against 12, no right first lost, ~2.9 s a query. `manual_test`; test cases 256 (253 pass, 3 skipped), 3544 assertions |
+| (P2) | **The manual's held-out queries and model decided**: `eval/manual-held-out.txt` (30 queries written after the weight was chosen): words 1 of 30 first, EmbeddingGemma 12 joined, 15 alone, Qwen3-Embedding 15 and 19; the weight stays ½ (partly fitted, above); EmbeddingGemma ships (decisions); no code changed |
+| (P2) | **L4 with a model made for search** (what blocked L5): `builtin_model::embed` pools as the GGUF says (`ARCH.pooling_type`) with its special tokens, so BERT-like and Gemma/Qwen3 embedding models work (a chat model still by its last token); `ovis model pull embedding` (EmbeddingGemma-300M, `default_embedding_model`), which `ovis manual` uses when found (`find_embedding_model`, `--embedding-model`, `--embeddings` fails without it), never the chat model; query and entry prefixes (`manual_embeddings`); the words count half (`lexical_weight`). Fixed: `manual-embeddings.bin` written with one vector size for vectors of two models, after which every read failed and the search fell back to the words. `ovis_eval manual` reports embeddings alone too, `--lexical-weight`, `--query-prefix`, `--entry-prefix`, `--no-prefixes`. Measured (above): first 25 of 34 against 13. `manual_test`; test cases 255 (252 pass, 3 skipped), 3539 assertions |
+| (P2) | **L6, `ovis manual --html DIR`**: `write_manual_html` writes `index.html` (every entry under its topic) and one page per topic (per package and topic), an anchor per entry with its sentence, other ways of saying it and examples; with words, only the entries found. The links are checked in the files written (a page and an id must be there), problems go to stderr and exit 1; `manual_test`. Test cases 254 (251 pass, 3 skipped) |
+| … | Earlier history: [dream/state](dream/state/INDEX.md) (to deployment, projects J1–J8, packages H1–H9 and the manual's L1–L4, L7–L10, R1; phrase scope S1–S5 and the manual planned) |

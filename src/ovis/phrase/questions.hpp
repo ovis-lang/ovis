@@ -75,6 +75,14 @@ auto closest_templates(const std::vector<string_type> &p_words,
                        const std::vector<phrase_template> &p_templates,
                        std::size_t p_limit) -> std::vector<string_type>;
 
+// The indexes into `p_templates` of the phrases a query is about, best
+// first, at most `p_limit` (`ovis manual`): the words of every way of saying
+// a phrase count in full, the words of its `about:` sentence by half, so
+// "make every letter big" finds `in capitals` by "letter".
+auto manual_matches(const std::vector<string_type> &p_words,
+                    const std::vector<phrase_template> &p_templates,
+                    std::size_t p_limit) -> std::vector<std::size_t>;
+
 // Readings a small edit of the span gives (a word left out, an extra word,
 // another word in place of one): the span edited, read by the parser as an
 // expression or statement, kept if the line then reads. Names, values and

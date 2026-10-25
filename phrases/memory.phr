@@ -2,11 +2,23 @@
 # program's memory until `free`d, or in a new memory that is freed whole.
 
 expr  new memory                                  : memory => (new-memory)
+      about: A fresh memory to make things in; free it, and everything in it goes.
+      example: scratch = a new memory
       alias: a new memory
 stmt  with new memory : BLOCK                              => (with-new-memory BLOCK)
+      about: Runs the indented lines in a new memory that is freed when they end.
 stmt  with {m: memory} : BLOCK                             => (with-memory $m BLOCK)
+      about: Runs the indented lines making things in that memory.
 stmt  clear {m: memory}                                    => (clear-memory $m)
+      about: Frees everything made in the memory but keeps the memory.
+      example: clear scratch
 stmt  free {x: any}                                        => (free $x)
+      about: Gives back the memory of a thing; it must not be used after.
+      example: free scratch
 expr  keep {x: T}                                 : T      => (keep $x)
+      about: Moves a thing out of a short-lived memory into the one around it.
+      example: add keep label to names
 expr  a copy of {x: T}                            : T      => (copy $x)
+      about: A separate copy: changing the copy leaves the original as it was.
+      example: more = a copy of names
       alias: copy of {x}

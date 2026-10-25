@@ -117,7 +117,52 @@ words:": up to 4 phrases whose words are like the span's words of meaning
 (not names, of one word or several, values, fields; the same word or a shared 4-letter start),
 spoken with slots as their kind (`TEXT in capitals`), by whichever way of
 saying it is closest. `ovis phrases WORDS` searches the built-in phrases
-the same way (12 best); with no words it lists them all by file.
+the same way (12 best); with no words it lists them all by file, each
+with its `about:` sentence and first example.
+
+**`ovis manual`** (`manual_search`, `manual_matches`; L3): the lexical step
+of the manual ([proposals/manual-and-editor.md](proposals/manual-and-editor.md)).
+Every word of every way of saying a phrase counts in full, every word of its
+`about:` sentence by half, so "letter" finds `TEXT in capitals`; best first,
+6 shown with topic (the `.phr` file), `about`, examples and the other ways of
+saying it, none of it written by a model. `--in FILE` adds the `phrases/`
+folder beside FILE and the project's `[build] phrases`; `--line N` adds the
+words of line N of FILE (not sigils, comments, texts or numbers); no words
+lists every phrase by topic. The program's and its packages' `to …:` phrases are entries too (L7, `program_phrase_templates`):
+the `#` lines above a header are its `about`, up to two lines that read to it its examples, the package
+its origin. What a file's `use "x.h"` lines import are entries too (L10, `c_header_templates`): functions, function-like and generic macros, constants and structs, found by the name split into words and the parameters' names, titled with the C signature in Ovis's types (`phrase_template::title`), the header's comment sentence, and the program's uses of the name as examples (those it calls first). Records (`a book (record)`: fields, the traits it is), traits (`a shape (trait)`: needed and default phrases, who implements it) and a package's top-level constants (`max_sides = 12`) are entries too (L7 rest, same scan, `#` lines above as `about`, the program's lines that mention the name as examples); a package's entries end with `From NAME 1.4.0.` (`phrase_file::package_version`).
+
+*Embeddings (L4, `manual.cpp`), by a model made for search.* `ovis model
+pull embedding` fetches EmbeddingGemma-300M (`default_embedding_model`, 334
+MB); when it is found (`find_embedding_model`: `--embedding-model PATH`,
+beside the executable, `../share/ovis`, the cache directory) and not
+`--offline`, `ovis manual` uses it, never the chat model (`--embeddings`
+fails without it). The query and each entry's text (every way of saying it,
+then `about`; not the examples) are embedded after the model's prefixes
+(`task: search result | query: `, `title: none | text: `; another model's
+are left out), with its own pooling and special tokens (`builtin_model::embed`
+takes them from the GGUF's `ARCH.pooling_type`; a chat model's is its last
+token). The lexical order and the order by similarity are joined by
+reciprocal rank (`1/(10+place)`, the lexical place counting half,
+`manual_embeddings::lexical_weight`), ties to the lexical order, so "shout"
+finds `in capitals` and a shared word still counts. Entry vectors are kept
+in `manual-embeddings.bin` in the model cache directory, keyed by the model
+and the entry's text, one vector size to a file (another size is dropped
+when the file is written): after an edit only the changed entries are
+embedded, a package's or the program's too. A model that can't embed leaves
+the search lexical. Measured by `ovis_eval manual eval/manual-queries.txt`
+(state.md). CI keeps the words' floor with `--no-model`.
+
+*The model choosing (L5, `manual_choose`).* After the search, when there
+are words and not `--offline` or `--html`, the chat model (`make_model`,
+the daemon's) is shown the query and the first 5 entries, each its pattern
+and `about`, and "none of these" (`manual_choice_probabilities`, one
+`choose`). Its pick moves first only when it is sure, as a question's
+answer is taken (60%, 30 points ahead of the next, "none" included); the
+rest keep the search's order, and no model or a failing one leaves the
+order as it was. It moves real entries and never writes a word (decision
+1). Measured with `ovis_eval manual --choose-model FILE` (state.md):
+always taking its pick loses to the search; only a sure one wins.
 
 **`ovis fmt`** (`formatted_source`, `format.cpp`): text only, no build.
 Each code line's sigils go above it at its indentation, spaced as builds
@@ -126,19 +171,6 @@ decisions applied to the line, whole words), `Compiler:` lines `@[note:
 …]`; a meaning the same as its line goes. Stranded sigils are left for
 the build to report. `--check` only says which files would change (CI
 checks the examples).
-
-**Editor** (`ovis lsp`, `language_server.cpp`; `editors/vscode`). A
-Language Server Protocol server on stdin/stdout. A program is checked when
-a file of it is opened or saved (not per keystroke), with the editor's
-text, no model, no rewrite and lines as read; a file of a folder with a
-`main.ovis` is checked with its program. Each diagnostic carries its fixes
-(`data.fixes`); a code action per fix inserts `@[meaning: …]` above the
-line at its indentation (or replaces the meaning there). Hover on a line
-under a meaning shows it; on a meaning, whether the lockfile says Ovis
-wrote it (and for this line) or the author did. The VS Code extension
-starts `ovis lsp`, highlights the syntax (sigils as comments) and dims
-sigil lines (`ovis.dimSigils`): VS Code can't fold a line away on its own,
-so the owner chose dimming over folding.
 
 `ovis_eval questions` and `ovis_eval programs` measure ranking, the model and
 whole programs; their options (`--orders`, `--embeddings-only`, `--min-first`,

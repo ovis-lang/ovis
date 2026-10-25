@@ -83,3 +83,32 @@ TEST_CASE("Every built-in phrase works as its test program shows.",
     CHECK(used.contains(name));
   }
 }
+
+TEST_CASE("Every example in the library reads to its own template.",
+          "[phrase][library][manual]") {
+  // The names an example uses come from the template's test program, when
+  // it isn't a program by itself (manual-and-editor.md §2.1).
+  const auto cases = read_library_cases();
+  for (const auto &item : ovis::phrase::builtin_templates()) {
+    const auto name = item.file + ":" + std::to_string(item.line);
+    for (const auto &example : item.examples) {
+      INFO(name + " example: " + example);
+      auto reads = [&](const std::string &p_program) {
+        const auto result = ovis::phrase::compile_phrases(p_program, nullptr);
+        return result.succeeded() && result.templates_used.contains(name);
+      };
+      auto found = reads(example + "\n");
+      for (std::size_t at = 0; !found && at < cases.size(); ++at)
+        found = reads(cases[at].program + "\n" + example + "\n");
+      CHECK(found);
+    }
+  }
+}
+
+TEST_CASE("Every built-in phrase says what it is for.", "[phrase][library][manual]") {
+  for (const auto &item : ovis::phrase::builtin_templates()) {
+    const auto name = item.file + ":" + std::to_string(item.line);
+    INFO(name + " " + ovis::phrase::to_string(item, item.patterns[0]));
+    CHECK(!item.about.empty());
+  }
+}

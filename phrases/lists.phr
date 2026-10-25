@@ -2,30 +2,66 @@
 # (prelude.core), copied for the type of the items.
 
 expr  length of {xs: T[]}                       : int    => (len $xs)
+      about: How many items the list has.
+      example: show length of xs
       alias: number of items in {xs}
       alias: size of {xs}
       alias: how many items in {xs}
 expr  item {i: int} of {xs: T[]}                : T      => (get $xs (- $i 1))
+      about: The item at that position, counting from 1.
+      example: show item 2 of xs
 expr  first item of {xs: T[]}                   : T      => (get $xs 0)
+      about: The first item of the list.
+      example: show first item of xs
 expr  last item of {xs: T[]}                    : T      => (get $xs (- (len $xs) 1))
+      about: The last item of the list.
+      example: show last item of xs
 expr  empty list of {t: type}                   : t[]    => (array $t 0)
+      about: A new list with no items, for items of that type.
+      example: names = empty list of text
       alias: list of {t}
       alias: new list of {t}
 expr  {xs: T[]} is empty                        : bool   => (= (len $xs) 0)
+      about: True when the list has no items.
+      example: show xs is empty
 expr  the numbers from {a: int} to {b: int}     : int[]  => (prelude_range $a $b)
+      about: The whole numbers from a up to b, as a list.
+      example: show the numbers from 2 to 5
 expr  the numbers from {a: int} down to {b: int} : int[] => (prelude_range_down $a $b)
+      about: The whole numbers from a down to b, as a list.
+      example: show the numbers from 5 down to 2
       alias: the numbers counting down from {a} to {b}
 
 stmt  add {x: T} to {xs: T[]}                            => (append $xs $x)
+      about: Puts the item at the end of the list.
+      example: add 40 to xs
       alias: append {x} to {xs}
 stmt  set item {i: int} of {xs: T[]} to {x: T}           => (put $xs (- $i 1) $x)
+      about: Replaces the item at that position, counting from 1.
+      example: set item 1 of xs to 5
 stmt  remove item {i: int} of {xs: T[]}                    => (remove-at $xs (- $i 1))
+      about: Takes out the item at that position, counting from 1.
+      example: remove item 1 of xs
 stmt  remove {x: T} from {xs: T:equatable[]}             => (prelude_remove $xs $x)
+      about: Takes out the first item equal to this one, if the list has it.
+      example: remove 20 from xs
 stmt  sort {xs: T:comparable[]}                        => (sort $xs)
+      about: Puts the list in order, smallest first.
+      example: sort xs
 stmt  reverse {xs: T[]}                                  => (reverse $xs)
+      about: Turns the list around, last item first.
+      example: reverse xs
 
 expr  {xs: T:equatable[]} contains {x: T}       : bool   => (prelude_contains $xs $x)
+      about: True when the list has an item equal to this one.
+      example: show xs contains 3
       alias: {xs} has {x}
 expr  position of {x: T} in {xs: T:equatable[]}   : int    => (prelude_position $xs $x)
+      about: Where the item first is in the list, counting from 1; 0 when it is not there.
+      example: show position of 2 in xs
 expr  count of {x: T} in {xs: T:equatable[]}      : int    => (prelude_count $xs $x)
+      about: How many items of the list are equal to this one.
+      example: show count of 2 in xs
 expr  {xs: str[]} joined with {sep: str}        : str    => (prelude_join $xs $sep)
+      about: The texts of the list as one text, with the separator between them.
+      example: show words joined with "-"

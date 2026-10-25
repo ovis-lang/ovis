@@ -218,6 +218,11 @@ auto build_phrase(const phrase_template &p_template, const pattern &p_pattern,
                   const slot_fills &p_fills, const vocabulary &p_vocabulary)
     -> std::optional<parse>;
 
+// The templates with a slot that takes a value of this kind, by the same
+// check a line is read with (`ovis manual --for`); a vocabulary's own.
+auto phrases_taking(const vocabulary &p_vocabulary, const value_kind &p_value)
+    -> std::vector<const phrase_template *>;
+
 // A function called as `name(args)`: a user function or a C function.
 struct callable {
   // Its name in Ovis Core.

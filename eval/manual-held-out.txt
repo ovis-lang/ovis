@@ -1,0 +1,96 @@
+# Held out from manual-queries.txt: written after the weight of the words
+# against the embeddings (`manual_embeddings::lexical_weight`) was chosen on
+# that set, to say how much of its result was fitted. Never tune on these;
+# when they've been used to choose something, write a new held-out set.
+# Same format and rules as manual-queries.txt: in an author's words, far
+# from the words of the phrase meant.
+
+expect: last character of
+the final letter of a word
+
+expect: part of
+grab a few letters out of the middle of a string
+
+expect: ends with
+does the file name finish with .txt
+
+expect: repeated
+say the same text over and over, a set number of times
+
+expect: number of letters in
+how long is this name, counting characters
+
+expect: TEXT is a number
+check whether what the user typed looks like a figure
+
+expect: code of
+the ascii value of a letter
+
+expect: TEXT as a whole number
+turn the digits someone typed into something I can add up
+
+expect: largest of
+the biggest value in a bunch of scores
+
+expect: squared
+multiply a number by itself
+
+expect: to the power of
+raise two to the tenth
+
+expect: rounded up
+go to the next whole value above, never below
+
+expect: percent of
+what is fifteen in a hundred of the price
+
+expect: is divisible by
+does seven go into this evenly
+
+expect: is between
+is the age inside a range
+
+expect: last item of
+the element at the very end of a collection
+
+expect: remove item
+take out the third element of a list
+
+expect: position of VALUE in LIST
+where in the list does this name sit
+
+expect: joined with
+glue all the names together with commas in between
+
+expect: the numbers from
+count from one up to ten as a sequence
+
+expect: has [an entry for]
+is this name stored in the lookup table
+
+expect: remove the entry for
+forget a name from the table
+
+expect: number of entries in
+how big is the dictionary
+
+expect: in binary
+print a number as zeros and ones
+
+expect: with its bytes reversed
+swap the byte order for the network
+
+expect: end the program
+stop running right now
+
+expect: ask for a line
+read what the person types at the keyboard
+
+expect: sorted by
+order the people by their age
+
+expect: with the highest
+the person who is oldest
+
+expect: is nothing
+check that there is no value there

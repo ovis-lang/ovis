@@ -100,6 +100,14 @@ struct phrase_template {
   // In it `$slot` after a `_` or `:` is the record's name, so
   // `comes_before__$a` calls the function the record's author wrote.
   string_type record_core;
+  // The manual's words (manual-and-editor.md §2.1): one or two sentences
+  // from the `about:` line, and the `example:` lines, each a line that
+  // reads to this template.
+  string_type about;
+  std::vector<string_type> examples;
+  // How the manual names it when its pattern is only the words it is found
+  // by: a C function's signature (`deflateInit(strm, level) gives …`).
+  string_type title;
   // `=> records`: the phrase is for records only, so it has no Ovis Core of
   // its own and `core` is empty.
   bool records_only = false;
@@ -117,6 +125,8 @@ struct phrase_template {
 //   # comment
 //   expr  average of {xs: num[]}        : float => (/ (float (sum $xs)) ...)
 //         alias: mean of {xs}
+//         about: The average of the numbers.
+//         example: show mean of [1, 2, 3]
 //   stmt  add {x: T} to {xs: T[]}               => (append $xs $x)
 //   stmt  keep doing {n: int} times: BLOCK      => (for _ 1 $n BLOCK)
 //

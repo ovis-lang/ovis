@@ -172,6 +172,35 @@ TEST_CASE("Read sigils above lines.", "[phrase][lexer]") {
   CHECK(lines[2].depth == 0);
 }
 
+TEST_CASE("A template keeps its about and example lines.",
+          "[phrase][templates]") {
+  const auto templates = ovis::phrase::read_templates(
+      "expr  {s: str} in capitals : str => (prelude_upper $s)\n"
+      "      about: The text with every letter a capital: \"Ada\" is \"ADA\".\n"
+      "      alias: {s} in upper case\n"
+      "      example: show \"Ada\" in capitals\n"
+      "      example: shout = message in capitals\n"
+      "stmt  end the program => (exit 0)\n",
+      "text.phr");
+  REQUIRE(templates.size() == 2);
+  CHECK(templates[0].about ==
+        "The text with every letter a capital: \"Ada\" is \"ADA\".");
+  CHECK(templates[0].patterns.size() == 2);
+  REQUIRE(templates[0].examples.size() == 2);
+  CHECK(templates[0].examples[1] == "shout = message in capitals");
+  CHECK(templates[1].about.empty());
+  CHECK(templates[1].examples.empty());
+  CHECK_THROWS_WITH(ovis::phrase::read_templates(
+                        "stmt  end the program => (exit 0)\n"
+                        "      about: One.\n      about: Two.\n",
+                        "x.phr"),
+                    ContainsSubstring("one 'about:' line"));
+  CHECK_THROWS_WITH(ovis::phrase::read_templates(
+                        "stmt  end the program => (exit 0)\n      example:\n",
+                        "x.phr"),
+                    ContainsSubstring("'example:' needs a line"));
+}
+
 TEST_CASE("Read phrase templates.", "[phrase][templates]") {
   const auto templates = ovis::phrase::read_templates(
       "# lists\n"
@@ -256,7 +285,7 @@ TEST_CASE("Report mistakes in phrase templates.", "[phrase][templates]") {
                        "  alias: count {xs: T[]}"),
                ContainsSubstring("Types go on the main pattern"));
   REQUIRE_THAT(failure("  alias: count {xs}"),
-               ContainsSubstring("Only 'alias:' and 'for records:' lines are indented"));
+               ContainsSubstring("Only 'alias:', 'about:', 'example:' and 'for records:' lines are indented"));
   REQUIRE_THAT(failure("fn size of {xs: T[]} : int => (len $xs)"),
                ContainsSubstring("starts with 'expr' or 'stmt'"));
   REQUIRE_THAT(failure("expr size (of) {xs: T[]} : int => (len $xs)"),

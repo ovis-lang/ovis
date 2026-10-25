@@ -769,6 +769,61 @@ class program_reader {
   // When each name was last set, for `it` and left-out arguments.
   std::map<string_type, std::size_t> set_at;
   std::size_t sets = 0;
+
+public:
+  // The names in scope before each line (`variables_recorded`).
+  std::map<std::size_t, std::vector<scope_variable>> variables_here;
+
+private:
+  std::map<string_type, std::size_t> first_set_line;
+  std::size_t previous_line = 0;
+
+public:
+  // The phrases with a slot for `options.phrases_for`, and what that is.
+  std::vector<phrase_template> phrases_found;
+  string_type phrases_found_type;
+  std::filesystem::path source_path;
+
+private:
+  // `options.phrases_for`: a name in scope now, else a type in words.
+  auto find_phrases_for() -> void {
+    std::optional<value_kind> kind;
+    if (const auto found = scope.find(options.phrases_for);
+        found != scope.end() && found->second.known())
+      kind = found->second;
+    else {
+      const auto tokens = tokenize(options.phrases_for);
+      for (const auto &[length, type] : type_words(tokens, 0, tokens.size(), &words))
+        if (length == tokens.size())
+          kind = type;
+    }
+    if (!kind)
+      return;
+    phrases_found_type = kind->english();
+    for (const auto *item : phrases_taking(words, *kind))
+      phrases_found.push_back(*item);
+  }
+
+  auto here_for_phrases(std::size_t p_line) const -> bool {
+    return !options.phrases_for.empty() && options.phrases_for_line == p_line &&
+           !options.phrases_for_path.empty() &&
+           source_path.lexically_normal() == options.phrases_for_path.lexically_normal();
+  }
+
+  // Called before a statement is read: what is in scope now, and which names
+  // the statement before it brought in.
+  auto record_scope(std::size_t p_line) -> void {
+    std::vector<scope_variable> here;
+    for (const auto &[name, type] : scope) {
+      first_set_line.try_emplace(name, previous_line);
+      here.push_back({name, type.known() ? type.english() : string_type(),
+                      first_set_line[name]});
+    }
+    variables_here[p_line] = std::move(here);
+    previous_line = p_line;
+    if (here_for_phrases(p_line))
+      find_phrases_for();
+  }
   std::set<string_type> template_words;
   bool model_used = false;
   std::size_t base_depth = 0;
@@ -1759,6 +1814,8 @@ class program_reader {
     using enum line_shape::kind_type;
     auto &line = working[p_index];
     const auto &source = lines[p_index];
+    if (options.variables_recorded || here_for_phrases(source.line))
+      record_scope(source.line);
     ++p_index;
     line_shape shape;
     const auto value = settle(line, shape);
@@ -2248,7 +2305,8 @@ public:
         package_label(p_file.package_label),
         shown_name(p_file.name.empty() ? p_file.path.filename().string()
                                        : p_file.name),
-        file_prefix(p_file.name.empty() ? string_type() : p_file.name + ", ") {
+        file_prefix(p_file.name.empty() ? string_type() : p_file.name + ", "),
+        source_path(p_file.path) {
     enter();
     const string_view_type p_source = p_file.text;
     const auto start = clock_type::now();
@@ -3291,6 +3349,9 @@ public:
       if (!form.empty())
         units.emplace_back(line, std::move(text));
     }
+    // Line 0: what is in scope when the file ends.
+    if (here_for_phrases(0))
+      find_phrases_for();
     shared.globals[whole_package()] = scope;
     return units;
   }
@@ -3708,6 +3769,7 @@ auto compile_phrase_program(const std::vector<phrase_file> &p_files,
   std::vector<std::vector<std::pair<std::size_t, string_type>>> units(
       p_files.size());
   result.core_lines.resize(p_files.size());
+  result.variables.resize(p_files.size());
   for (std::size_t index = 0; index < p_files.size(); ++index) {
     auto &file = files[index];
     file.source = p_files[index].text;
@@ -3715,6 +3777,11 @@ auto compile_phrase_program(const std::vector<phrase_file> &p_files,
     if (!readers[index])
       continue;
     units[index] = readers[index]->read();
+    result.variables[index] = std::move(readers[index]->variables_here);
+    if (!readers[index]->phrases_found_type.empty()) {
+      result.phrases_for_type = readers[index]->phrases_found_type;
+      result.phrases_taking = std::move(readers[index]->phrases_found);
+    }
     // Each Core line under the line it comes from, as read, even when the
     // build stops on a problem.
     for (const auto &[line, text] : units[index]) {

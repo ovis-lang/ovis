@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <set>
 #include <sstream>
@@ -35,8 +36,8 @@
 #include <ovis/core/c_import.hpp>
 #include <ovis/english/model_daemon.hpp>
 #include <ovis/phrase/front_end.hpp>
-#include <ovis/phrase/language_server.hpp>
 #include <ovis/phrase/phrase_check.hpp>
+#include <ovis/phrase/templates.hpp>
 #include <ovis/project/cmake_project.hpp>
 #include <ovis/project/lock.hpp>
 #include <ovis/project/native.hpp>
@@ -69,13 +70,25 @@ Commands:
              say which files would change)
   phrases    the built-in phrases with these words (ovis phrases round
              decimals), or every one with no words
+  manual     the phrases a question is about, with what each does and an
+             example (ovis manual make every letter big); --in FILE adds
+             that program's phrases/ folders, --line N searches with the
+             words of line N of FILE and says which names are set there;
+             --for NAME|TYPE lists the phrases that take a name (set before
+             --line N, else at the end of FILE) or a type; no words lists
+             every phrase by topic;
+             --html DIR writes the entries as web pages (every phrase, or the
+             ones the words find), links checked;
+             finds meanings too with the embedding model when it is there
+             (ovis model pull embedding; --embeddings: fail without it,
+             --embedding-model PATH: another; --offline: words alone),
+             and the chat model, when there is one, moves the entry it is
+             sure of first
   check-phrases
              whether this program's own phrases (its `to …:` blocks and
              helper files) make the questions Ovis asks about other lines
              worse; no model (exit 1 if they do). --dependencies:
              which of its lines its packages' phrases change
-  lsp        serve an editor on stdin and stdout (Language Server
-             Protocol): problems, quick fixes, how each line is read
   new NAME   make the project NAME/: ovis.toml, a main.ovis saying hello,
              .gitignore, git init (init: the same in this folder)
   update     move the project's packages to the newest version on their
@@ -98,7 +111,8 @@ Commands:
 
   model path   show which built-in model would be used
   model pull   download the default model into the cache directory: 7B
-               where a GPU runs it, else 3B (or name one: 3b, 7b)
+               where a GPU runs it, else 3B (or name one: 3b, 7b), or
+               `embedding`, the model `ovis manual` finds meanings with
   model embed  write a copy of ovis with MODEL built into the executable
   model stop   stop the model daemon for these options, if one is running
 
@@ -182,6 +196,10 @@ struct arguments {
   bool verbose = false;
   ovis::core::c_import_options c_imports;
   bool offline = false;
+  // `manual --embeddings`: find phrases by meaning or fail (without it, by
+  // meaning when the embedding model is there); `--embedding-model PATH`.
+  bool manual_embeddings = false;
+  std::optional<std::filesystem::path> embedding_model;
   bool quiet = false;
   bool keep_source = false;
   double model_budget = 10;
@@ -195,6 +213,12 @@ struct arguments {
   bool print = false;
   bool prompt = true;
   std::string fix_line;
+  // `manual --in FILE`: the phrases in sight of this program.
+  std::filesystem::path manual_in;
+  // `manual --for NAME|TYPE`: the phrases that take it.
+  std::string manual_for;
+  // `manual --html DIR`: write the entries as pages there.
+  std::filesystem::path manual_html;
   std::size_t fix_apply = 0;
   std::string fix_meaning;
   // For builds under CMake.
@@ -324,9 +348,6 @@ auto parse_arguments(int p_count, char **p_values) -> arguments {
       throw ovis::error("Usage: ovis runtime [-o FILE]");
     return result;
   }
-  // `ovis lsp` alone serves an editor; the other commands name a program.
-  if (p_count == 2 && std::string_view(p_values[1]) == "lsp")
-    return {.command = "lsp"};
   // `ovis phrases [WORDS…]`: words, not a program.
   if (p_count >= 2 && std::string_view(p_values[1]) == "phrases") {
     arguments result{.command = "phrases"};
@@ -370,6 +391,8 @@ auto parse_arguments(int p_count, char **p_values) -> arguments {
       result.endpoint.use_grammar = false;
     else if (option == "--model-path")
       result.model_path = value();
+    else if (option == "--embedding-model")
+      result.embedding_model = value();
     else if (option == "-I")
       result.c_imports.include_directories.emplace_back(value());
     else if (option == "-L")
@@ -412,6 +435,8 @@ auto parse_arguments(int p_count, char **p_values) -> arguments {
       result.verbose = true;
     else if (option == "--offline")
       result.offline = true;
+    else if (option == "--embeddings")
+      result.manual_embeddings = true;
     else if (option == "--quiet")
       result.quiet = true;
     else if (option == "--keep-source")
@@ -444,8 +469,14 @@ auto parse_arguments(int p_count, char **p_values) -> arguments {
     }
     else if (option == "--no-prompt")
       result.prompt = false;
+    else if (option == "--in")
+      result.manual_in = value();
     else if (option == "--line")
       result.fix_line = value();
+    else if (option == "--for")
+      result.manual_for = value();
+    else if (option == "--html")
+      result.manual_html = value();
     else if (option == "--apply")
       result.fix_apply = std::stoul(value());
     else if (option == "--meaning")
@@ -472,7 +503,8 @@ auto parse_arguments(int p_count, char **p_values) -> arguments {
         result.options.emplace_back(p_values[at]);
   }
   // In a project the program is the nearest ovis.toml's (apply_project).
-  if (result.positional.empty() && !takes_project(result.command))
+  if (result.positional.empty() && !takes_project(result.command) &&
+      result.command != "manual")
     throw ovis::error(usage);
   return result;
 }
@@ -676,6 +708,10 @@ auto edit_dependencies(arguments &p_arguments, const std::filesystem::path &p_fi
 // build and how; flags on the command line add to its settings. A single
 // file named builds as before, ignoring any project.
 auto apply_project(arguments &p_arguments) -> void {
+  const auto package_only = [](const arguments &p_checked, const ovis::project::project &p_project) {
+    return p_checked.command == "check" && p_project.package &&
+           !std::filesystem::exists(p_project.root / "main.ovis");
+  };
   if (!takes_project(p_arguments.command) || p_arguments.command == "init")
     return;
   std::optional<std::filesystem::path> file;
@@ -725,7 +761,7 @@ auto apply_project(arguments &p_arguments) -> void {
     return;
   const auto project = ovis::project::load_project(*file);
   if (p_arguments.command != "update" && p_arguments.command != "tree" &&
-      !is_dependency_command(p_arguments.command) &&
+      !is_dependency_command(p_arguments.command) && !package_only(p_arguments, project) &&
       !std::filesystem::exists(project.root / "main.ovis"))
     throw ovis::error(project.root.string() + " has no main.ovis: a project's "
                                               "program starts there.");
@@ -756,7 +792,8 @@ auto apply_project(arguments &p_arguments) -> void {
       cmake && (p_arguments.command == "run" || p_arguments.command == "build") &&
       p_arguments.object.empty();
   if (p_arguments.command == "cmake" || p_arguments.command == "update" ||
-      p_arguments.command == "tree" || is_dependency_command(p_arguments.command))
+      p_arguments.command == "tree" || is_dependency_command(p_arguments.command) ||
+      package_only(p_arguments, project))
     return;
   // check and fix read the program without CMake: the include folders and
   // definitions its targets give come from the flags file the last build's
@@ -1168,13 +1205,18 @@ auto run_model_command(const arguments &p_arguments,
   if (subcommand == "pull") {
     // The larger model where a GPU runs it, unless asked for one.
     const auto *model = &ovis::english::default_model_for(gpu);
-    if (p_arguments.positional.size() > 1) {
+    // The manual's embedding model has no size; `pull embedding` names it.
+    const auto &embedder = ovis::english::default_embedding_model();
+    const ovis::english::default_model embedding{"embedding", embedder.file_name, embedder.url};
+    if (p_arguments.positional.size() > 1 && p_arguments.positional[1] == "embedding")
+      model = &embedding;
+    else if (p_arguments.positional.size() > 1) {
       const auto found = std::ranges::find(ovis::english::default_models(),
                                            p_arguments.positional[1],
                                            &ovis::english::default_model::size);
       if (found == ovis::english::default_models().end())
         throw ovis::error("Unknown model size " + p_arguments.positional[1] +
-                          "; use 3b or 7b.");
+                          "; use 3b, 7b or embedding.");
       model = &*found;
     }
     const auto directory = ovis::english::model_cache_directory();
@@ -1618,6 +1660,7 @@ auto load_program_files(const arguments &p_arguments,
                                            &ovis::project::resolved_package::name);
     for (auto &file : loaded) {
       file.aliases = package.dependencies;
+      file.package_version = package.package_version.text();
       if (copies > 1)
         file.package_label = package.name + " " + package.package_version.text();
     }
@@ -1925,6 +1968,55 @@ auto vendor_packages(const arguments &p_arguments) -> int {
   return 0;
 }
 
+// The package in `p_arguments.project`, read as its users' programs would
+// read it, with its dependencies, no model and nothing written; its problems
+// and those of its `# example:` lines are printed (packages.md §6, L9).
+struct package_reading {
+  std::vector<ovis::phrase::phrase_file> files;
+  std::size_t first_own = 0;
+  ovis::phrase::program_result result;
+  // It reads, and its examples do.
+  bool ok = false;
+};
+
+auto read_package(const arguments &p_arguments, const std::string &p_line) -> package_reading {
+  const auto &project = *p_arguments.project;
+  package_reading reading;
+  for (const auto &package : p_arguments.packages.packages) {
+    auto loaded = ovis::phrase::load_package_files(package.root, package.id);
+    for (auto &file : loaded) {
+      file.aliases = package.dependencies;
+    }
+    std::ranges::move(loaded, std::back_inserter(reading.files));
+  }
+  const auto id = project.package->name + "@" + p_line;
+  auto own = ovis::phrase::load_package_files(project.root, id);
+  if (own.empty())
+    throw ovis::error(project.root.string() + " has no .ovis files.");
+  for (auto &file : own) {
+    file.aliases = p_arguments.packages.roots;
+  }
+  reading.first_own = reading.files.size();
+  std::ranges::move(own, std::back_inserter(reading.files));
+  const ovis::phrase::front_end_options options{
+      .c_imports = p_arguments.c_imports,
+      .phrase_directories = p_arguments.phrase_directories,
+      .sources_written = false,
+      .strict_memory = p_arguments.strict_memory};
+  reading.result = ovis::phrase::compile_phrase_program(reading.files, nullptr, options);
+  for (const auto &problem : reading.result.problems)
+    std::cerr << problem << '\n';
+  reading.ok = reading.result.succeeded();
+  // Only a package that reads has examples worth running.
+  if (reading.ok)
+    for (const auto &problem :
+         ovis::phrase::check_package_examples(reading.files, reading.first_own, options)) {
+      std::cerr << problem << '\n';
+      reading.ok = false;
+    }
+  return reading;
+}
+
 // `ovis release X.Y.Z` in a package: checks it can be released, then tags
 // it vX.Y.Z (the author pushes the tag): the version is ovis.toml's, the
 // work is committed, the tag is new, and every file reads and checks with
@@ -1962,38 +2054,13 @@ auto release_package(const arguments &p_arguments) -> int {
   if (git({"rev-parse", "-q", "--verify", "refs/tags/" + tag}).status == 0)
     throw ovis::error("The tag " + tag + " already exists: a version is released once.");
 
-  // Its files read as a dependency's would, with its dependencies.
-  std::vector<ovis::phrase::phrase_file> files;
-  for (const auto &package : p_arguments.packages.packages) {
-    auto loaded = ovis::phrase::load_package_files(package.root, package.id);
-    for (auto &file : loaded) {
-      file.aliases = package.dependencies;
-    }
-    std::ranges::move(loaded, std::back_inserter(files));
-  }
-  const auto id = project.package->name + "@" + wanted->line();
-  auto own = ovis::phrase::load_package_files(project.root, id);
-  if (own.empty())
-    throw ovis::error(root + " has no .ovis files to release.");
-  for (auto &file : own) {
-    file.aliases = p_arguments.packages.roots;
-  }
-  const auto first_own = files.size();
-  std::ranges::move(own, std::back_inserter(files));
-  const auto result = ovis::phrase::compile_phrase_program(
-      files, nullptr,
-      {.c_imports = p_arguments.c_imports,
-       .phrase_directories = p_arguments.phrase_directories,
-       .sources_written = false,
-       .strict_memory = p_arguments.strict_memory});
-  for (const auto &problem : result.problems)
-    std::cerr << problem << '\n';
-  if (!result.succeeded())
+  const auto read = read_package(p_arguments, wanted->line());
+  if (!read.ok)
     throw ovis::error("The package doesn't build as its users would build it; fix the "
                       "problems above (`ovis fix` settles unclear lines).");
-  for (auto index = first_own; index < files.size(); ++index)
-    if (result.locks[index] != files[index].lock)
-      throw ovis::error(files[index].name + ": its lockfile would change; build it and "
+  for (auto index = read.first_own; index < read.files.size(); ++index)
+    if (read.result.locks[index] != read.files[index].lock)
+      throw ovis::error(read.files[index].name + ": its lockfile would change; build it and "
                         "commit the lockfile first.");
   const auto tagged = git({"tag", "-a", tag, "-m", project.package->name + " " + wanted->text()});
   if (tagged.status != 0)
@@ -2001,6 +2068,18 @@ auto release_package(const arguments &p_arguments) -> int {
   std::cerr << "ovis: tagged " << tag << "; publish it with `git push origin " << tag
             << "`\n";
   return 0;
+}
+
+auto is_package_only(const arguments &p_arguments) -> bool {
+  return p_arguments.command == "check" && p_arguments.project && p_arguments.project->package &&
+         !std::filesystem::exists(p_arguments.project->root / "main.ovis");
+}
+
+// `ovis check` in a package, which has no main.ovis: the release's reading,
+// with no tag.
+auto check_package(const arguments &p_arguments) -> int {
+  const auto read = read_package(p_arguments, p_arguments.project->package->package_version.line());
+  return read.ok ? 0 : 1;
 }
 
 // `ovis update [NAME…]`: what apply_project's lock_project moved. A name
@@ -2085,6 +2164,240 @@ auto run_cmake_project(const arguments &p_arguments, const char *p_argument_zero
   return run_program(executable.string());
 }
 
+// The words of meaning of line N of a program (`manual --line`): what is
+// not a sigil, a comment, a quoted text or a number.
+auto line_words(const std::filesystem::path &p_file, std::size_t p_line)
+    -> std::vector<std::string> {
+  std::ifstream input(p_file);
+  if (!input)
+    throw ovis::error("Cannot read " + p_file.string() + ".");
+  std::string text;
+  for (std::size_t number = 1; std::getline(input, text); ++number)
+    if (number == p_line)
+      break;
+    else
+      text.clear();
+  const auto first = text.find_first_not_of(" \t");
+  if (first == std::string::npos || text[first] == '#' ||
+      text.compare(first, 2, "@[") == 0)
+    throw ovis::error("Line " + std::to_string(p_line) + " of " + p_file.string() +
+                      " has no phrase to look up.");
+  std::vector<std::string> words;
+  std::string current;
+  bool quoted = false;
+  const auto finish = [&] {
+    if (!current.empty() && std::isalpha(static_cast<unsigned char>(current.front())))
+      words.push_back(current);
+    current.clear();
+  };
+  for (const auto letter : text + ' ') {
+    if (letter == '"')
+      quoted = !quoted;
+    else if (!quoted && (std::isalnum(static_cast<unsigned char>(letter)) || letter == '_'))
+      current += static_cast<char>(std::tolower(static_cast<unsigned char>(letter)));
+    else
+      finish();
+  }
+  return words;
+}
+
+// What is set before line N of FILE (`manual --line`), and with `--for` the
+// phrases that take a name or a type there (line 0: at the end of the file)
+// (manual-and-editor.md §2.4). Compiled without the model, so a line the
+// parser cannot settle leaves its names without a type. A status when
+// `--for` is the whole answer.
+auto manual_variables(const arguments &p_arguments,
+                      const std::filesystem::path &p_in, std::size_t p_line)
+    -> std::optional<int> {
+  const auto files = load_program_files(p_arguments, p_in);
+  ovis::phrase::front_end_options options{.c_imports = p_arguments.c_imports,
+                                          .phrase_directories = p_arguments.phrase_directories,
+                                          .sources_written = false,
+                                          .variables_recorded = p_arguments.manual_for.empty(),
+                                          .phrases_for = p_arguments.manual_for,
+                                          .phrases_for_path = p_in,
+                                          .phrases_for_line = p_line};
+  const auto program = ovis::phrase::compile_phrase_program(files, nullptr, options);
+  if (!p_arguments.manual_for.empty()) {
+    if (program.phrases_for_type.empty()) {
+      std::cout << "'" << p_arguments.manual_for
+                << "' is no name set " << (p_line ? "before that line" : "in that file")
+                << " and no type Ovis knows.\n";
+      return 1;
+    }
+    std::cout << p_arguments.manual_for << " is " << program.phrases_for_type
+              << ". Phrases that take it:\n";
+    for (const auto &item : program.phrases_taking) {
+      const auto entry = ovis::phrase::manual_entry_of(item);
+      std::cout << "\n  " << entry.pattern << "   (" << entry.topic
+                << (entry.package.empty() ? "" : ", from " + entry.package) << ")\n";
+      if (!entry.about.empty())
+        std::cout << "      " << entry.about << '\n';
+      if (!entry.examples.empty())
+        std::cout << "      " << entry.examples.front() << '\n';
+    }
+    return program.phrases_taking.empty() ? 1 : 0;
+  }
+  for (std::size_t index = 0; index < files.size(); ++index) {
+    if (files[index].path.lexically_normal() != p_in.lexically_normal() ||
+        index >= program.variables.size())
+      continue;
+    // The record of the nearest line at or before the one asked for.
+    const auto &lines = program.variables[index];
+    auto found = lines.upper_bound(p_line);
+    if (found == lines.begin())
+      break;
+    --found;
+    if (found->second.empty()) {
+      std::cout << "Nothing is set before line " << p_line << ".\n\n";
+      break;
+    }
+    std::cout << "Set before line " << p_line << ":\n";
+    for (const auto &variable : found->second) {
+      std::cout << "  " << variable.name << ": "
+                << (variable.type.empty() ? "type not known" : variable.type);
+      std::cout << (variable.line == 0 ? "" : ", set on line " + std::to_string(variable.line))
+                << '\n';
+    }
+    std::cout << '\n';
+  }
+  return std::nullopt;
+}
+
+// `ovis manual [WORDS…] [--in FILE] [--line N]`: the phrases a query is
+// about, with what each does and an example (manual-and-editor.md §2.2).
+auto manual_command(const arguments &p_arguments, const char *p_argument_zero)
+    -> int {
+  std::vector<std::filesystem::path> directories = p_arguments.phrase_directories;
+  std::vector<std::string> words = p_arguments.positional;
+  std::vector<ovis::phrase::phrase_template> own_phrases;
+  if (!p_arguments.manual_in.empty()) {
+    const auto &in = p_arguments.manual_in;
+    const auto folder = std::filesystem::is_directory(in) ? in : in.parent_path();
+    if (std::filesystem::is_directory(folder / "phrases"))
+      directories.push_back(folder / "phrases");
+    if (const auto project = ovis::project::find_project(
+            std::filesystem::absolute(folder.empty() ? "." : folder))) {
+      const auto loaded = ovis::project::load_project(*project);
+      for (const auto &directory : loaded.phrases)
+        directories.push_back(loaded.root / directory);
+    }
+    // The program's own and its packages' phrases (L7).
+    try {
+      const auto files = load_program_files(p_arguments, in);
+      auto own = ovis::phrase::program_phrase_templates(files, in);
+      std::ranges::move(own, std::back_inserter(own_phrases));
+      // What its `use "x.h"` lines import (L10).
+      auto c_entries =
+          ovis::phrase::c_header_templates(files, in, p_arguments.c_imports);
+      std::ranges::move(c_entries, std::back_inserter(own_phrases));
+    } catch (const ovis::error &) {
+    }
+    if (!p_arguments.fix_line.empty()) {
+      const auto colon = p_arguments.fix_line.rfind(':');
+      const auto number = p_arguments.fix_line.substr(colon == std::string::npos ? 0 : colon + 1);
+      const auto line = std::stoul(number);
+      if (p_arguments.manual_for.empty()) {
+        const auto lines = line_words(in, line);
+        words.insert(words.end(), lines.begin(), lines.end());
+      }
+      // The names set before the line, and the phrases for one (L8).
+      if (const auto status = manual_variables(p_arguments, in, line))
+        return *status;
+    } else if (!p_arguments.manual_for.empty()) {
+      if (const auto status = manual_variables(p_arguments, in, 0))
+        return *status;
+    }
+  } else if (!p_arguments.fix_line.empty() || !p_arguments.manual_for.empty())
+    throw ovis::error("`ovis manual --line` and `--for` need the program: --in FILE.");
+  std::vector<ovis::phrase::phrase_template> more = std::move(own_phrases);
+  for (const auto &directory : directories) {
+    auto library = ovis::phrase::load_phrase_library(directory);
+    std::ranges::move(library.templates, std::back_inserter(more));
+  }
+  // Meaning is found by a model made for search when it is there (L4,
+  // `ovis model pull embedding`): it finds what the words miss, where 3B's
+  // vectors found nothing (state.md). Never the chat model, and not --offline.
+  std::unique_ptr<ovis::english::language_model> model;
+  ovis::phrase::manual_embeddings embeddings{
+      .cache = ovis::english::model_cache_directory() / "manual-embeddings.bin"};
+  if (!words.empty() && !p_arguments.offline && ovis::english::has_builtin_model_support()) {
+    const auto location = ovis::english::find_embedding_model(
+        p_arguments.embedding_model, executable_path(p_argument_zero));
+    if (location) {
+      auto options = builtin_options_of(p_arguments, *location);
+      options.log = {};
+      model = std::make_unique<ovis::english::builtin_model>(options);
+      embeddings.model = model.get();
+      // Another model's prefixes are its author's to know.
+      const auto &known = ovis::english::default_embedding_model();
+      if (location->file.filename() == known.file_name) {
+        embeddings.query_prefix = known.query_prefix;
+        embeddings.entry_prefix = known.entry_prefix;
+      }
+    } else if (p_arguments.manual_embeddings)
+      throw ovis::error("No embedding model found. Run `ovis model pull embedding`.");
+  }
+  auto entries = ovis::phrase::manual_search(
+      words, more, p_arguments.manual_html.empty() ? 6 : 0, embeddings);
+  // The chat model picks among the first found when it is sure (L5): it
+  // moves only real entries, and without it the order stands.
+  if (!words.empty() && p_arguments.manual_html.empty() && !p_arguments.offline) {
+    std::unique_ptr<ovis::english::language_model> chooser;
+    try {
+      chooser = make_model(p_arguments, p_argument_zero);
+    } catch (const ovis::error &) {
+    }
+    if (chooser) {
+      std::string query;
+      for (const auto &word : words)
+        query += (query.empty() ? "" : " ") + word;
+      entries = ovis::phrase::manual_choose(query, std::move(entries), *chooser);
+    }
+  }
+  if (entries.empty()) {
+    std::cout << "No phrase is about those words. `ovis manual` lists them all.\n";
+    return 1;
+  }
+  if (!p_arguments.manual_html.empty()) {
+    const auto problems =
+        ovis::phrase::write_manual_html(entries, p_arguments.manual_html);
+    for (const auto &problem : problems)
+      std::cerr << "ovis: " << problem << '\n';
+    std::cout << "Wrote " << entries.size() << " phrases to " << p_arguments.manual_html.string()
+              << '\n';
+    return problems.empty() ? 0 : 1;
+  }
+  std::string topic;
+  for (const auto &entry : entries) {
+    // Every phrase is listed under its topic; a search, best first.
+    if (words.empty()) {
+      if (entry.topic != topic)
+        std::cout << (topic.empty() ? "" : "\n") << (topic = entry.topic) << ":\n";
+    } else
+      std::cout << '\n';
+    std::cout << (words.empty() ? "  " : "") << entry.pattern;
+    if (!words.empty())
+      std::cout << "   (" << entry.topic
+                << (entry.package.empty() ? "" : ", from " + entry.package) << ')';
+    std::cout << '\n';
+    const std::string indent = words.empty() ? "      " : "    ";
+    if (!entry.about.empty())
+      std::cout << indent << entry.about << '\n';
+    if (!words.empty()) {
+      for (const auto &example : entry.examples)
+        std::cout << indent << example << '\n';
+      if (!entry.aliases.empty()) {
+        std::cout << indent << "Also: ";
+        for (std::size_t index = 0; index < entry.aliases.size(); ++index)
+          std::cout << (index ? ", " : "") << entry.aliases[index];
+        std::cout << '\n';
+      }
+    }
+  }
+  return 0;
+}
+
 auto run(const arguments &p_arguments, const char *p_argument_zero) -> int {
   const auto &command = p_arguments.command;
   if (command == "cmake")
@@ -2118,6 +2431,8 @@ auto run(const arguments &p_arguments, const char *p_argument_zero) -> int {
     return vendor_packages(p_arguments);
   if (command == "release")
     return release_package(p_arguments);
+  if (command == "check" && is_package_only(p_arguments))
+    return check_package(p_arguments);
   if (command == "tree") {
     if (p_arguments.packages.packages.empty())
       std::cerr << "ovis: the project uses no packages\n";
@@ -2147,14 +2462,26 @@ auto run(const arguments &p_arguments, const char *p_argument_zero) -> int {
   }
   if (command == "phrases") {
     std::string file;
+    // The first example comes with each phrase: its words are the manual's.
+    std::map<std::string, ovis::phrase::manual_entry> described;
+    for (auto &entry : ovis::phrase::manual_search({}, {}, 0))
+      described.emplace(entry.pattern, std::move(entry));
     for (const auto &[from, spoken] : ovis::phrase::phrases_like(p_arguments.positional, 12)) {
       // Every phrase is listed under its file; a search, best first.
       if (p_arguments.positional.empty() && from != file)
         std::cout << (file.empty() ? "" : "\n") << (file = from) << ":\n";
       std::cout << "  " << spoken << '\n';
+      if (const auto found = described.find(spoken); found != described.end()) {
+        if (!found->second.about.empty())
+          std::cout << "      " << found->second.about << '\n';
+        if (!found->second.examples.empty())
+          std::cout << "      e.g. " << found->second.examples.front() << '\n';
+      }
     }
     return 0;
   }
+  if (command == "manual")
+    return manual_command(p_arguments, p_argument_zero);
   if (command == "check-phrases" && p_arguments.dependencies)
     return ovis::phrase::check_dependency_phrases(
         load_program_files(p_arguments, p_arguments.positional[0]), {},
@@ -2180,8 +2507,6 @@ auto run(const arguments &p_arguments, const char *p_argument_zero) -> int {
     std::cout << "ovis " OVIS_VERSION "\n";
     return 0;
   }
-  if (command == "lsp")
-    return ovis::phrase::serve_language(std::cin, std::cout, p_arguments.c_imports);
   if (command != "run" && command != "build" && command != "ir" &&
       command != "check" && command != "fix")
     throw ovis::error("Unknown command " + command + ".\n\n" + usage);

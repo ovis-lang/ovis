@@ -1,38 +1,86 @@
 # Text. Positions count from 1, as people do.
 
 expr  length of {s: str}                        : int    => (strlen $s)
+      about: How many characters the text has.
+      example: show length of s
       alias: number of characters in {s}
 expr  character {i: int} of {s: str}            : str    => (substring $s (- $i 1) 1)
+      about: The character at that position, counting from 1.
+      example: show character 2 of s
 expr  first character of {s: str}               : str    => (substring $s 0 1)
+      about: The first character of the text.
+      example: show first character of s
 expr  last character of {s: str}                : str    => (substring $s (- (strlen $s) 1) 1)
+      about: The last character of the text.
+      example: show last character of s
 expr  part of {s: str} from {a: int} to {b: int} : str   => (prelude_part $s $a $b)
+      about: The characters from a to b, counting from 1.
+      example: show part of s from 2 to 4
 expr  {s: str} is empty                         : bool   => (= (strlen $s) 0)
+      about: True when the text has no characters.
+      example: show s is empty
 expr  {s: str} contains {t: str}                : bool   => (prelude_text_contains $s $t)
+      about: True when the second text is somewhere in the first.
+      example: show s contains "world"
       alias: {s} has {t}
 expr  {s: str} starts with {t: str}             : bool   => (prelude_starts_with $s $t)
+      about: True when the text begins with the second text.
+      example: show s starts with "Hell"
       alias: {s} begins with {t}
 expr  {s: str} ends with {t: str}               : bool   => (prelude_ends_with $s $t)
+      about: True when the text ends with the second text.
+      example: show s ends with "x"
 expr  position of {t: str} in {s: str}          : int    => (prelude_text_position $s $t)
+      about: Where the second text first is in the first, counting from 1; 0 when it is not there.
+      example: show position of "o" in s
 
 expr  {s: str} in capitals                      : str    => (prelude_upper $s)
+      about: The text with every letter a capital: "Ada" in capitals is "ADA".
+      example: show "Ada" in capitals
       alias: {s} in upper case
       alias: {s} in uppercase
 expr  {s: str} in small letters                 : str    => (prelude_lower $s)
+      about: The text with every letter small: "Ada" in small letters is "ada".
+      example: show "Ada" in small letters
       alias: {s} in lower case
       alias: {s} in lowercase
 expr  {s: str} reversed                         : str    => (prelude_reverse_text $s)
+      about: The text backwards.
+      example: show "abc" reversed
       alias: {s} backwards
 expr  {s: str} trimmed                          : str    => (prelude_trim $s)
+      about: The text without spaces at either end.
+      example: show s trimmed + "|"
 expr  {s: str} repeated {n: int} times          : str    => (prelude_repeat_text $s $n)
+      about: The text written n times in a row.
+      example: show "ab" repeated 3 times
 expr  {s: str} with {a: str} replaced by {b: str} : str  => (prelude_replace $s $a $b)
+      about: The text with every a in it changed to b.
+      example: show "a-b-c" with "-" replaced by "+"
 
 expr  words of {s: str}                         : str[]  => (prelude_split $s " ")
+      about: The words of the text as a list, split at spaces.
+      example: show words of s
 expr  {s: str} split by {sep: str}              : str[]  => (prelude_split $s $sep)
+      about: The pieces of the text between the separators, as a list.
+      example: show "a,b,,c" split by ","
 expr  number of words in {s: str}               : int    => (prelude_count_words $s)
+      about: How many words the text has.
+      example: show number of words in s
       alias: word count of {s}
 expr  number of letters in {s: str}             : int    => (prelude_count_letters $s)
+      about: How many letters the text has, spaces and marks not counted.
+      example: show number of letters in s
 expr  {s: str} is a whole number                : bool   => (prelude_is_whole $s)
+      about: True when the text is only the digits of a whole number, with an optional minus.
+      example: show "42" is a whole number
 expr  {s: str} is a number                      : bool   => (prelude_is_decimal $s)
+      about: True when the text is a number, whole or with a decimal point.
+      example: show "4.5" is a number
       alias: {s} is a decimal
 expr  code of {c: str}                          : int    => (char_at $c 0)
+      about: The number that stands for the character.
+      example: show code of "A"
 expr  the character with code {n: int}          : str    => (chr $n)
+      about: The character that the number stands for.
+      example: show the character with code 66

@@ -1,0 +1,8 @@
+# History rows: the manual, L7 and L8
+
+Archived from docs/state.md → "History" on 2026-10-25 (dream at 74eea1a).
+
+| Commit | Summary |
+| --- | --- |
+| (P2) | **L8, the names in scope at a line, and `--for`**: with `front_end_options::variables_recorded` the reader keeps the names in scope before each line (`program_result::variables`: name, type as an author says it, the line that first set it); `ovis manual --in FILE --line N` prints them ("Set before line N") before the search with the line's words, and `--for NAME|TYPE` (with `--line N`, else at the end of the file) lists the phrases that take that name's type or a type written in words, by `accepts`, the check lines are read with (`phrases_taking`), without the model. Compiled without the model, so a name set by a line the parser can't settle shows `type not known`. Not yet: records, traits, C functions as entries (L7 rest, L10). Test cases 248 (245 pass, 3 skipped), 3460 assertions |
+| (P2) | **L7, the program's and packages' phrases in `ovis manual`**: `program_phrase_templates` scans every file's top-level `to …:` headers (not a compile, so they show while other lines have problems) into entries: the pattern from the header (slots as `VALUE`), the `#` lines above it as `about`, up to two lines of the program that read to it as examples ("line   (file, line N)"), the package as origin; with `--in FILE`, a package FILE doesn't `use` is marked "write `use NAME` to read it". Not yet: records, traits, top-level values and C functions as entries, `# example:` lines, a version in the origin, hiding a phrase the file can't see (L7 rest, L8). Test cases 247 (244 pass, 3 skipped), 3444 assertions |

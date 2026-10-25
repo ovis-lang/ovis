@@ -1173,6 +1173,31 @@ auto reading_of(const phrase_template &p_template, const pattern &p_pattern,
 
 } // namespace
 
+auto phrases_taking(const vocabulary &p_vocabulary, const value_kind &p_value)
+    -> std::vector<const phrase_template *> {
+  std::vector<const phrase_template *> result;
+  for (const auto &item : p_vocabulary.templates) {
+    if (item.records_only || !p_vocabulary.sees(item.package))
+      continue;
+    slot_fills fills;
+    fills.types.resize(item.slots.size());
+    for (const auto &slot : item.slots) {
+      std::map<string_type, value_kind> variables;
+      const auto kind = slot.type.kind;
+      // A slot of a type written in words, or of a field, takes no value.
+      if (kind == type_name::kind_type::type_slot ||
+          kind == type_name::kind_type::field || slot.type.name == "type" ||
+          slot.type.name == "size")
+        continue;
+      if (accepts(slot.type, p_value, variables, item, fills, p_vocabulary)) {
+        result.push_back(&item);
+        break;
+      }
+    }
+  }
+  return result;
+}
+
 // The parse a template gives with these fills, if their types fit.
 auto build_phrase(const phrase_template &p_template, const pattern &p_pattern,
                   const slot_fills &p_fills, const vocabulary &p_vocabulary)

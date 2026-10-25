@@ -581,6 +581,65 @@ auto closest_templates(const std::vector<string_type> &p_words,
   return result;
 }
 
+auto manual_matches(const std::vector<string_type> &p_words,
+                    const std::vector<phrase_template> &p_templates,
+                    std::size_t p_limit) -> std::vector<std::size_t> {
+  struct match {
+    double score;
+    std::size_t length;
+    std::size_t index;
+  };
+  std::vector<match> matches;
+  for (std::size_t index = 0; index < p_templates.size(); ++index) {
+    const auto &item = p_templates[index];
+    std::vector<string_type> pattern_words;
+    for (const auto &pattern : item.patterns)
+      for (const auto &element : pattern) {
+        if (element.kind == pattern_element::kind_type::word)
+          pattern_words.push_back(element.word);
+        for (const auto &branch : element.branches)
+          for (const auto &part : branch)
+            pattern_words.push_back(part.word);
+      }
+    std::vector<string_type> about_words;
+    string_type current;
+    for (const auto letter : item.about + ' ') {
+      if (std::isalpha(static_cast<unsigned char>(letter)))
+        current += static_cast<char>(std::tolower(static_cast<unsigned char>(letter)));
+      else {
+        if (current.size() >= 3 && !is_function_word(current))
+          about_words.push_back(current);
+        current.clear();
+      }
+    }
+    double score = 0;
+    for (const auto &word : p_words) {
+      if (is_function_word(word))
+        continue;
+      double closest = 0;
+      for (const auto &other : pattern_words)
+        if (const auto alike = word_similarity(word, other); alike >= 2)
+          closest = std::max(closest, alike);
+      for (const auto &other : about_words)
+        if (const auto alike = word_similarity(word, other); alike >= 2)
+          closest = std::max(closest, alike / 2);
+      score += closest;
+    }
+    if (score > 0)
+      matches.push_back({score, item.patterns.front().size(), index});
+  }
+  // Best first; among equals, the shorter phrase, then the library's order.
+  std::ranges::stable_sort(matches, [](const match &p_left, const match &p_right) {
+    return p_left.score != p_right.score ? p_left.score > p_right.score
+                                         : p_left.length < p_right.length;
+  });
+  std::vector<std::size_t> result;
+  for (const auto &item : matches)
+    if (result.size() < p_limit)
+      result.push_back(item.index);
+  return result;
+}
+
 auto edit_candidates(const std::vector<token> &p_tokens, std::size_t p_begin,
                      std::size_t p_end, bool p_whole, bool p_statement,
                      bool p_block,

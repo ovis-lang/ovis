@@ -2,122 +2,262 @@
 # decimals each have their own template; the slot types pick one.
 
 expr  sum of {xs: int[]}                        : int    => (prelude_sum_int $xs)
+      about: The whole numbers of the list added up.
+      example: show sum of whole
       alias: total of {xs}
 expr  sum of {xs: float[]}                      : float  => (prelude_sum_float $xs)
+      about: The decimals of the list added up.
+      example: show sum of decimals
       alias: total of {xs}
 expr  average of {xs: int[]}                    : float  => (/ (float (prelude_sum_int $xs)) (float (len $xs)))
+      about: The whole numbers of the list added up and divided by how many.
+      example: show average of whole
       alias: average value of {xs}
 expr  average of {xs: float[]}                  : float  => (/ (prelude_sum_float $xs) (float (len $xs)))
+      about: The decimals of the list added up and divided by how many.
+      example: show average of decimals
       alias: average value of {xs}
 expr  smallest of {xs: T:comparable[]}          : T      => (prelude_smallest $xs)
+      about: The least item of the list.
+      example: show smallest of whole
       alias: minimum of {xs}
 expr  largest of {xs: T:comparable[]}           : T      => (prelude_largest $xs)
+      about: The greatest item of the list.
+      example: show largest of whole
       alias: maximum of {xs}
 
 expr  square root of {x: num}                   : float  => (sqrt (float $x))
+      about: The number that multiplied by itself gives x.
+      example: show square root of 16
 expr  {x: num} to the power of {y: num}         : float  => (pow (float $x) (float $y))
+      about: x multiplied by itself y times.
+      example: show 2 to the power of 10
 expr  {x: num} squared                          : num    => (* $x $x)
+      about: x multiplied by itself.
+      example: show 3 squared
 expr  {x: num} cubed                            : num    => (* $x (* $x $x))
+      about: x multiplied by itself twice over.
+      example: show 2 cubed
 expr  absolute value of {x: num}                : num    => (abs $x)
+      about: The number without its minus sign.
+      example: show absolute value of -4
 expr  half of {x: num}                          : float  => (/ (float $x) 2.0)
+      about: The number divided by 2, as a decimal.
+      example: show half of 7
 expr  {a: num} percent of {b: num}              : float  => (/ (* (float $a) (float $b)) 100.0)
+      about: That many hundredths of b.
+      example: show 20 percent of 50
 expr  {a: num} multiplied by {b: num}           : num    => (* $a $b)
+      about: The two numbers multiplied.
+      example: show 2.5 multiplied by 2
       alias: {a} times {b}
       alias: {a} multiply by {b}
 expr  {x: num} doubled                         : num    => (* $x 2)
+      about: The number times 2.
+      example: show n doubled
       alias: the double of {x}
 expr  the product of {a: num} and {b: num}     : num    => (* $a $b)
+      about: The two numbers multiplied.
+      example: show the product of n and 3
 expr  {a: num} divided by {b: num}              : float  => (/ (float $a) (float $b))
+      about: a divided by b, as a decimal.
+      example: show 7 divided by 2
 expr  remainder of {a: int} divided by {b: int} : int    => (% $a $b)
+      about: What is left over when a is divided by b.
+      example: show remainder of 7 divided by 3
 expr  the smaller of {a: num} and {b: num}      : num    => (min $a $b)
+      about: The lesser of two numbers.
+      example: show the smaller of 3 and 8
       alias: the min of {a} and {b}
 expr  the larger of {a: num} and {b: num}       : num    => (max $a $b)
+      about: The greater of two numbers.
+      example: show the larger of 3 and 8
       alias: the max of {a} and {b}
 
 expr  {x: num} rounded                          : int    => (int (floor (+ (float $x) 0.5)))
+      about: The nearest whole number; halves go up.
+      example: show 2.5 rounded
 expr  {x: num} rounded down                     : int    => (int (floor (float $x)))
+      about: The whole number at or below the number.
+      example: show 2.7 rounded down
 expr  {x: num} rounded up                       : int    => (int (ceil (float $x)))
+      about: The whole number at or above the number.
+      example: show 2.1 rounded up
 expr  {x: num} rounded to {n: int} decimal[s]   : float  => (/ (floor (+ (* (float $x) (pow 10.0 (float $n))) 0.5)) (pow 10.0 (float $n)))
+      about: The number rounded to that many digits after the point.
+      example: show 3.14159 rounded to 2 decimals
 
 expr  {x: int} is even                          : bool   => (= (% $x 2) 0)
+      about: True when the whole number divides by 2.
+      example: show 4 is even
       alias: {x} is an even number
 expr  {x: int} is odd                           : bool   => (!= (% $x 2) 0)
+      about: True when the whole number does not divide by 2.
+      example: show 4 is odd
       alias: {x} is an odd number
 expr  {x: int} is divisible by {y: int}         : bool   => (= (% $x $y) 0)
+      about: True when x divides by y with nothing left over.
+      example: show 9 is divisible by 3
 expr  {x: num} is positive                      : bool   => (> $x 0)
+      about: True when the number is above zero.
+      example: show 2 is positive
       alias: {x} is above zero
 expr  {x: num} is negative                      : bool   => (< $x 0)
+      about: True when the number is below zero.
+      example: show -2 is negative
       alias: {x} is below zero
 expr  {x: num} is zero                          : bool   => (= $x 0)
+      about: True when the number is 0.
+      example: show 0 is zero
 expr  {x: num} is between {a: num} and {b: num} : bool   => (prelude_between (float $x) (float $a) (float $b))
+      about: True when the number is from a to b, both included.
+      example: show 5 is between 1 and 10
 
 # Comparisons in words, for `if age is over 10:`; `>` and the others are
 # the parser's. Without them a question could only offer wrong phrases.
 expr  {a: num} is (greater|more|bigger|larger|higher) than {b: num} : bool => (> $a $b)
+      about: True when a is more than b.
+      example: show x is greater than 3
       alias: {a} is over {b}
       alias: {a} is above {b}
 expr  {a: num} is (less|smaller|fewer|lower) than {b: num}         : bool => (< $a $b)
+      about: True when a is less than b.
+      example: show x is less than 3
       alias: {a} is under {b}
       alias: {a} is below {b}
 expr  {a: num} is at least {b: num}             : bool   => (>= $a $b)
+      about: True when a is b or more.
+      example: show x is at least 5
 expr  {a: num} is at most {b: num}              : bool   => (<= $a $b)
+      about: True when a is b or less.
+      example: show x is at most 4
 expr  {a: T:equatable} is equal to {b: T}       : bool   => (= $a $b)
+      about: True when the two are equal.
+      example: show x is equal to 5
       alias: {a} equals {b}
 expr  {a: T:equatable} is not {b: T}            : bool   => (!= $a $b)
+      about: True when the two are different.
+      example: show x is not 5
       alias: {a} is not equal to {b}
 
 expr  a random number from {low: int} to {high: int} : int => (random $low $high)
+      about: A whole number chosen at random, both ends possible.
+      example: roll = a random number from 1 to 6
 
 # A whole number's bits (docs/proposals/numbers.md §4), of any size. Bits
 # are numbered from 0, the lowest.
 
 expr  {a: int} bitwise and {b: int}             : int    => (bit-and $a $b)
+      about: The bits that are set in both.
+      example: show flags bitwise and 0b1010
       alias: {a} masked with {b}
 expr  {a: int} bitwise or {b: int}              : int    => (bit-or $a $b)
+      about: The bits that are set in either.
+      example: show flags bitwise or 1
 expr  {a: int} bitwise xor {b: int}             : int    => (bit-xor $a $b)
+      about: The bits that are set in one but not both.
+      example: show flags bitwise xor 6
       alias: {a} exclusive or {b}
 expr  bitwise not {x: int}                      : int    => (bit-not $x)
+      about: Every bit turned over.
+      example: show bitwise not 0
       alias: {x} with its bits flipped
 expr  {x: int} shifted left by {n: int} [bits]  : int    => (shift-left $x $n)
+      about: The bits moved up n places, zeros coming in; the same as times 2 to the n.
+      example: show 1 shifted left by 10
 expr  {x: int} shifted right by {n: int} [bits] : int    => (shift-right $x $n)
+      about: The bits moved down n places; the sign is kept.
+      example: show (-16) shifted right by 2 bits
 expr  {x: int} rotated left by {n: int} [bits]  : int    => (rotate-left $x $n)
+      about: The bits moved up n places, those pushed out coming back in at the bottom.
+      example: show 0x81 as a byte rotated left by 1
 expr  {x: int} rotated right by {n: int} [bits] : int    => (rotate-right $x $n)
+      about: The bits moved down n places, those pushed out coming back in at the top.
+      example: show 0x81 as a byte rotated right by 1 bit
 expr  bit {n: int} of {x: int}                  : bool   => (bit-test $x $n)
+      about: True when that bit is set; bits are numbered from 0, the lowest.
+      example: show bit 2 of flags
       alias: {x} has bit {n} set
 expr  {x: int} with bit {n: int} set            : int    => (bit-set $x $n)
+      about: The number with that bit turned on.
+      example: show flags with bit 0 set
 expr  {x: int} with bit {n: int} cleared        : int    => (bit-clear $x $n)
+      about: The number with that bit turned off.
+      example: show flags with bit 3 cleared
 expr  {x: int} with bit {n: int} flipped        : int    => (bit-flip $x $n)
+      about: The number with that bit turned over.
+      example: show flags with bit 2 flipped
 expr  the low {n: int} bits of {x: int}         : int    => (bit-field $x 0 (- $n 1))
+      about: Only the lowest n bits of the number.
+      example: show the low 4 bits of 0xAB
 expr  bits {a: int} to {b: int} of {x: int}     : int    => (bit-field $x $a $b)
+      about: The bits from a to b, as a number.
+      example: show bits 4 to 11 of 0xABCD
 expr  the number of set bits in {x: int}        : int    => (count-ones $x)
+      about: How many bits are on.
+      example: show the number of set bits in 255
       alias: the number of ones in {x}
 expr  the leading zeros of {x: int}             : int    => (leading-zeros $x)
+      about: How many off bits come before the first on bit, for the number's size.
+      example: show the leading zeros of (1 as a byte)
 expr  the trailing zeros of {x: int}            : int    => (trailing-zeros $x)
+      about: How many off bits come after the last on bit.
+      example: show the trailing zeros of 8
 expr  {x: int} with its bytes reversed          : int    => (byte-swap $x)
+      about: The bytes of the number in the opposite order.
+      example: show 0x1234 as a uint16 with its bytes reversed in hex
 
 # Whole numbers as hex or binary digits, and back. A number of a size shows
 # all its bits (a byte two hex digits); `with N digits` is the fewest.
 expr  {x: int} in hex                           : str    => (to-hex $x)
+      about: The number as hex digits; a number of a size shows all its bits.
+      example: show 255 in hex
 expr  {x: int} in hex with {n: int} digits      : str    => (to-hex $x $n)
+      about: The number as hex digits, at least n of them.
+      example: show 10 in hex with 4 digits
 expr  {x: int} in binary                        : str    => (to-binary $x)
+      about: The number as binary digits.
+      example: show 5 in binary
 expr  {x: int} in binary with {n: int} digits   : str    => (to-binary $x $n)
+      about: The number as binary digits, at least n of them.
+      example: show 5 in binary with 8 digits
 expr  {t: str} read as hex                      : int    => (from-hex $t)
+      about: The number written in hex in the text.
+      example: show "0xFF" read as hex + 1
 
 # Arithmetic that keeps the low bits (`(h * 16777619) wrapping`, for hashes)
 # or stops at the type's smallest and largest values, instead of being an
 # error when the result doesn't fit.
 expr  {x: int} wrapping                         : int    => (wrapping $x)
+      about: Arithmetic that keeps the low bits instead of stopping when the result does not fit.
+      example: h = ((h bitwise xor 97) * 16777619) wrapping
       alias: {x} wrapping around
 expr  {x: int} clamped                          : int    => (saturating $x)
+      about: Arithmetic that stops at the type's smallest or largest value instead of stopping the program.
+      example: show (b + 100) clamped
 
 # A decimal's bits as a whole number of its size, and back; a number's
 # bytes, lowest first as the machine keeps them (or highest first), and a
 # number read from bytes, at a position counted from 1.
 expr  the bits of {d: float}                    : int    => (float-bits $d)
+      about: A decimal's bits as a whole number of its size.
+      example: show the bits of 1.0 in hex
 expr  the decimal with bits {b: int}            : float  => (bits-float $b)
+      about: The decimal whose bits these are.
+      example: show the decimal with bits 0x3FF8000000000000
 expr  the bytes of {x: num}                     : int[]  => (to-bytes $x)
+      about: A number's bytes as a list, lowest first as the machine keeps them.
+      example: bytes = the bytes of 0x11223344 as a uint32
       alias: the bytes of {x} lowest first
 expr  the bytes of {s: str}                     : int[]  => (to-bytes $s)
+      about: The bytes of a text, as a list.
+      example: show the bytes of "Hé"
 expr  the bytes of {x: num} highest first       : int[]  => (to-bytes-big $x)
+      about: A number's bytes as a list, highest first.
+      example: show the bytes of 0x1234 as a uint16 highest first
 expr  the {t: size} at byte {i: int} of {b: int[]}  : t  => (from-bytes $t $b (- $i 1))
+      about: A number of that size read from the bytes of a list, lowest first, at a position counted from 1.
+      example: show the uint32 at byte 1 of bytes in hex
 expr  the {t: size} at byte {i: int} of {b: int[]} highest first : t => (from-bytes-big $t $b (- $i 1))
+      about: A number of that size read from the bytes of a list, highest first.
+      example: show the uint16 at byte 2 of bytes highest first

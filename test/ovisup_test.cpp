@@ -252,3 +252,18 @@ TEST_CASE("ovisup self update and self uninstall.", "[ovisup]") {
   CHECK_FALSE(std::filesystem::exists(space.home / ".ovis"));
   CHECK_FALSE(std::filesystem::exists(space.home / ".cache" / "ovis"));
 }
+
+TEST_CASE("ovisup and the compiler have one version.", "[ovisup]") {
+  // One version for the toolchain: release.yml refuses a tag that isn't the
+  // compiler's, and ovisup names the version it installs by its own.
+  const auto after = [](const std::string &p_text, const std::string &p_key) {
+    const auto at = p_text.find(p_key);
+    REQUIRE(at != std::string::npos);
+    const auto start = at + p_key.size();
+    return p_text.substr(start, p_text.find_first_of(" \n", start) - start);
+  };
+  const auto cmake = read_text(OVIS_SOURCE_DIR "/CMakeLists.txt");
+  const auto script = read_text(ovisup);
+  CHECK(after(script, "ovisup_version=") ==
+        after(cmake, "ovis\n    VERSION "));
+}

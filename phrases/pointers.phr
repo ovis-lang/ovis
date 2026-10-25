@@ -4,28 +4,68 @@
 # `array of float32s`, `phrase (whole number) giving text`.
 
 expr  the {t: type} at {p: ptr}                        : t   => (load $t $p)
+      about: Reads a value of that type from a pointer.
+      example: show the int32 at p
 stmt  set the {t: type} at {p: ptr} to {v: any}              => (store $t $p $v)
+      about: Writes a value of that type where a pointer points.
+      example: set the byte at p to 1
 expr  {p: ptr} moved by {n: int} {t: type}             : ptr => (offset $p $n $t)
+      about: The pointer n values of that type further on.
+      example: q = p moved by 1 bytes
 expr  size of [a] {t: type}                            : int => (size-of $t)
+      about: How many bytes a value of that type takes.
+      example: show size of int32
 expr  ref {x: any}                                     : ptr => (ref $x)
+      about: A pointer to a variable, so a phrase can change it.
+      example: q = ref score
       alias: [the] address of {x}
 expr  {p: ptr} as [a] {t: type}                        : t   => (cast $t $p)
+      about: The same address seen as a pointer of another type.
+      example: q = p as a pointer to many bytes
 expr  {x: record} as a pointer                         : ptr => (cast ptr $x)
+      about: A record as a pointer to its memory.
+      example: p = spot as a pointer
 expr  {p: ptr} as its address                          : int => (cast int $p)
+      about: The number that is the pointer's address.
+      example: address = p as its address
 expr  a new array of {n: int} {t: type}                : t[] => (array $t $n)
+      about: An array of n zeroed values of that type.
+      example: bytes = a new array of 4 bytes
 expr  the {n: int} {t: type} at {p: ptr}               : t[] => (view $t $p $n)
+      about: n values of that type at a pointer, seen as an array.
+      example: same = the 2 bytes at p
 # Room for items of any type, a generic's type variable too (generics.md §5):
 # zeroed, in the current memory; grown, its items copied. (`room for 8
 # bytes` is a text buffer, core.phr.)
 expr  new room for {n: int} {t: type}                  : ptr => (alloc $t $n)
+      about: Zeroed room for n values of that type, in the current memory.
+      example: slots = new room for 2 whole numbers
       alias: space for {n} {t}
 expr  {p: ptr} grown to {n: int} {t: type} from {old: int} : ptr => (alloc-more $p $t $old $n)
+      about: Room for n values, with the old ones copied into it.
+      example: more = slots grown to 3 whole numbers from 2
 
 expr  call {f: ptr}                                    : any => (call $f)
+      about: Runs a phrase held in a variable and gives what it gives back.
+      example: show call s
 expr  call {f: ptr} with {a: any}                      : any => (call $f $a)
+      about: Runs a phrase held in a variable, with one thing given to it.
+      example: show call f with 4
 expr  call {f: ptr} with {a: any} and {b: any}         : any => (call $f $a $b)
+      about: Runs a phrase held in a variable, with two things given to it.
+      example: show call h with 2 and 3
 expr  call {f: ptr} with {a: any}, {b: any} and {c: any} : any => (call $f $a $b $c)
+      about: Runs a phrase held in a variable, with three things given to it.
+      example: show call k with 1, 2 and 3
 stmt  call {f: ptr}                                          => (call $f)
+      about: Runs a phrase held in a variable.
+      example: call g
 stmt  call {f: ptr} with {a: any}                            => (call $f $a)
+      about: Runs a phrase held in a variable, with one thing given to it.
+      example: call f with 2
 stmt  call {f: ptr} with {a: any} and {b: any}               => (call $f $a $b)
+      about: Runs a phrase held in a variable, with two things given to it.
+      example: call greet _ and _ with "hi" and "there"
 stmt  call {f: ptr} with {a: any}, {b: any} and {c: any}     => (call $f $a $b $c)
+      about: Runs a phrase held in a variable, with three things given to it.
+      example: call greet all _, _ and _ with "x", "y" and "z"

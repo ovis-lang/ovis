@@ -3,13 +3,27 @@
 # fields.generic, copied for the record and field.
 
 expr  {xs: T[]} sorted by {f: field of T}                    : T[]  => (prelude_sorted_by:$f $xs)
+      about: A copy of the list in order of that field of its records.
+      example: ordered = points sorted by x
 stmt  sort {xs: T[]} by {f: field of T}                             => (prelude_sort_by:$f $xs)
+      about: Puts the list of records in order of that field.
+      example: sort points by label
 expr  total {f: num field of T} of {xs: T[]}                 : f    => (prelude_total_by:$f $xs)
+      about: The sum of that field over a list of records.
+      example: show total y of points
       alias: sum of {f} of {xs}
 expr  the {t: type} in {xs: t[]} with the (highest|largest|biggest|most) {f: field of t} : t => (prelude_highest_by:$f $xs)
+      about: The record whose field is greatest.
+      example: show the point in points with the highest y
 expr  the {t: type} in {xs: t[]} with the (lowest|smallest|least|fewest) {f: field of t}        : t => (prelude_lowest_by:$f $xs)
+      about: The record whose field is least.
+      example: show the point in points with the lowest x
 
 # `nothing` is a record that isn't there yet: a field of its own kind
 # (`next (node)`) holds it until given a node.
 expr  {a: record} is nothing                                 : bool => (= $a null)
+      about: True when the record is not there yet.
+      example: show first is nothing
 expr  {a: record} is not nothing                             : bool => (!= $a null)
+      about: True when the record is there.
+      example: show first is not nothing

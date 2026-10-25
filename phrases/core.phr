@@ -3,27 +3,61 @@
 # in test/phrase_library.txt.
 
 stmt  (show|print|display) {items: showable, ...}        => (print $items...)
+      about: Writes the items on one line, with a space between them.
+      example: show "Hello,", "world"
 stmt  show a blank line                                  => (print "")
+      about: Writes an empty line.
+      example: show a blank line
 stmt  end the program                                    => (exit 0)
+      about: Stops the program at once; nothing after it runs.
+      example: end the program
 
 expr  ask for a whole number                    : int    => (read_int)
+      about: Waits for a line of input and gives it as a whole number.
+      example: n = ask for a whole number
 expr  ask for a decimal [number]                : float  => (read_float)
+      about: Waits for a line of input and gives it as a decimal number.
+      example: d = ask for a decimal
 expr  ask for a line [of text]                  : str    => (read_line)
+      about: Waits for a line of input and gives it as text.
+      example: line = ask for a line of text
 expr  ask {prompt: str} for a whole number      : int    => (prelude_ask_int $prompt)
+      about: Writes the prompt, then reads a whole number.
+      example: age = ask "Age?" for a whole number
 expr  ask {prompt: str} for a decimal [number]  : float  => (prelude_ask_float $prompt)
+      about: Writes the prompt, then reads a decimal number.
+      example: height = ask "Height?" for a decimal number
 expr  ask {prompt: str} for a line [of text]    : str    => (prelude_ask_line $prompt)
+      about: Writes the prompt, then reads a line of text.
+      example: name = ask "Name?" for a line
 
 # Room a C function writes text into (`fgets(line, 100, file)`): zeroed.
 expr  a [text] buffer of {n: int} (characters|letters|bytes) : str => (buffer $n)
+      about: Empty room, zeroed, that a C function can write text into.
+      example: line = a buffer of 16 characters
       alias: room for {n} (characters|letters|bytes)
 
 expr  {x: showable} as text                     : str    => (to_str $x)
+      about: Any number, text, truth value or list as text: 7 as text is "7".
+      example: show 7 as text + "!"
 # A number as another type of number (numbers.md §3): `x as a decimal`,
 # `n as an int32` (an error if it doesn't fit), its low bits or the
 # nearest value that fits.
 expr  {x: num} as {t: size}                     : t      => (as $t $x)
+      about: A number as another type of number; an error if the value does not fit.
+      example: b = 200 as a byte
 expr  {x: num} wrapped to {t: size}             : t      => (wrap-to $t $x)
+      about: A number as another size, keeping only the low bits that fit.
+      example: show 70000 wrapped to a 16-bit whole number
 expr  {x: num} clamped to {t: size}             : t      => (clamp-to $t $x)
+      about: A number as another size, using the nearest value that fits.
+      example: show 300 clamped to a byte
 expr  {s: str} as a whole number                : int    => (atoi $s)
+      about: The whole number written in the text.
+      example: show "42" as a whole number + 1
 expr  {s: str} as a decimal [number]            : float  => (atof $s)
+      about: The decimal number written in the text.
+      example: show "2.5" as a decimal * 2
 expr  {x: num} with {n: int} decimal[s]         : str    => (prelude_fixed (float $x) $n)
+      about: A number as text with exactly that many digits after the point.
+      example: show 3.14159 with 2 decimals

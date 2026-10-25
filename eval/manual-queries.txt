@@ -1,0 +1,112 @@
+# Queries to `ovis manual`, in an author's words and far from the words of
+# the phrase meant (held out, like hard-questions.txt: don't change the
+# library's `about:` lines or the search to pass these; add new cases).
+# `ovis_eval manual eval/manual-queries.txt` reports where the entry meant
+# comes: first, and in the first 5, for the words alone and with embeddings.
+# CI keeps a floor for the words alone (--no-model).
+#
+# Format: `expect: TEXT`, then the query on the next line. TEXT is in the
+# pattern of the entry meant (as `ovis manual` prints it). Blank line
+# between cases.
+
+expect: in capitals
+make every letter big
+
+expect: in small letters
+turn the whole thing into lowercase
+
+expect: trimmed
+get rid of the blanks around some text
+
+expect: reversed
+flip a piece of text around
+
+expect: split by
+cut a sentence apart at every comma
+
+expect: number of words in
+how many words are in a sentence
+
+expect: starts with
+does some text begin with a certain beginning
+
+expect: replaced by
+change every occurrence of one piece of text into another
+
+expect: rounded down
+drop the fraction of a number
+
+expect: rounded to
+keep only two figures after the point
+
+expect: square root of
+the number that times itself gives this one
+
+expect: absolute value of
+remove the minus sign from a number
+
+expect: remainder of
+what is left over after sharing out evenly
+
+expect: is even
+can this number be halved with nothing left
+
+expect: average of
+what each would get if shared out equally
+
+expect: smallest of
+find the minimum in a collection of numbers
+
+expect: sort
+put a list in order from low to high
+
+expect: reverse
+turn a list back to front
+
+expect: add
+append something onto the end of a list
+
+expect: contains
+check whether a list has a certain thing in it
+
+expect: length of
+count how many things a list holds
+
+expect: first item of
+the one at the front of the list
+
+expect: random number
+roll a die
+
+expect: ask for a whole number
+wait for the person to type a count
+
+expect: show
+write something on the screen
+
+expect: as text
+turn a number into words I can print
+
+expect: set
+store a value under a name in a dictionary
+
+expect: the keys of
+every name in a dictionary
+
+expect: in hex
+write a number in base sixteen
+
+expect: shifted left by
+slide the bits of a number up
+
+expect: number of set bits
+count the ones in a binary number
+
+expect: a copy of
+make a duplicate that I can change safely
+
+expect: with new memory
+use a scratch area that is wiped when done
+
+expect: free
+give back the room a thing takes up

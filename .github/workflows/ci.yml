@@ -97,6 +97,19 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit $status
 
+      - name: Check the manual still finds its phrases
+        # manual-and-editor.md L4: where `ovis manual` puts the entry meant for
+        # 34 queries in an author's words, by the words alone (no model).
+        # Raise the floors when a change improves them.
+        shell: bash
+        run: |
+          ./build/ovis_eval manual eval/manual-queries.txt --no-model \
+            --min-first 13 --min-shown 21 | tee manual.txt
+          {
+            echo "### Manual ranking"
+            grep -E '^(Ranking|FAIL)' manual.txt || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Check other people's phrases don't make the questions worse
         # phrase-scope.md S5: 100 generated phrases made of the library's own
         # words (`count the smallest mean of (xs)`), as a utility package

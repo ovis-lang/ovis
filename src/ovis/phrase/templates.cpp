@@ -505,6 +505,20 @@ public:
     visit(form);
   }
 
+  auto read_about(string_view_type p_text) -> void {
+    if (!result.about.empty())
+      fail("A template has one 'about:' line.");
+    result.about = string_type(trim(p_text));
+    if (result.about.empty())
+      fail("'about:' needs a sentence.");
+  }
+
+  auto read_example(string_view_type p_text) -> void {
+    result.examples.emplace_back(trim(p_text));
+    if (result.examples.back().empty())
+      fail("'example:' needs a line of a program.");
+  }
+
   auto read_alias(string_view_type p_text) -> void {
     result.patterns.push_back(read_pattern(trim(p_text), false));
   }
@@ -656,13 +670,19 @@ auto read_templates(string_view_type p_text, string_view_type p_file)
       continue;
     if (std::isspace(static_cast<unsigned char>(line.front()))) {
       if (!reader || !(content.starts_with("alias:") ||
+                       content.starts_with("about:") ||
+                       content.starts_with("example:") ||
                        content.starts_with("for records:")))
         throw error(string_type(p_file) + ":" + std::to_string(number) +
-                    ": Only 'alias:' and 'for records:' lines are indented, "
-                    "under a template.");
+                    ": Only 'alias:', 'about:', 'example:' and 'for "
+                    "records:' lines are indented, under a template.");
       reader->at_line(number);
       if (content.starts_with("alias:"))
         reader->read_alias(content.substr(6));
+      else if (content.starts_with("about:"))
+        reader->read_about(content.substr(6));
+      else if (content.starts_with("example:"))
+        reader->read_example(content.substr(8));
       else
         reader->read_record_core(content.substr(12));
       continue;

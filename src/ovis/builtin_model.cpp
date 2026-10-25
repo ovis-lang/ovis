@@ -103,6 +103,33 @@ auto default_model_for(bool p_gpu) -> const default_model & {
   return default_models()[p_gpu ? 1 : 0];
 }
 
+auto default_embedding_model() -> const embedding_model & {
+  static const embedding_model model = {
+      "embeddinggemma-300M-Q8_0.gguf",
+      "https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/"
+      "resolve/main/embeddinggemma-300M-Q8_0.gguf",
+      "task: search result | query: ", "title: none | text: "};
+  return model;
+}
+
+auto find_embedding_model(const std::optional<std::filesystem::path> &p_explicit,
+                          const std::filesystem::path &p_executable)
+    -> std::optional<model_location> {
+  if (p_explicit) {
+    if (auto found = file_location(*p_explicit))
+      return found;
+    throw error("No model file at " + p_explicit->string() + ".");
+  }
+  const auto directory = p_executable.parent_path();
+  const auto &model = default_embedding_model();
+  for (const auto &candidate :
+       {directory / model.file_name, directory / ".." / "share" / "ovis" / model.file_name,
+        model_cache_directory() / model.file_name})
+    if (auto found = file_location(candidate))
+      return found;
+  return std::nullopt;
+}
+
 auto model_cache_directory() -> std::filesystem::path {
   if (const auto cache = environment_path("XDG_CACHE_HOME"))
     return *cache / "ovis" / "models";
@@ -618,14 +645,24 @@ auto builtin_model::choose(const std::vector<chat_message> &p_messages,
 auto builtin_model::embed(const std::vector<string_type> &p_texts)
     -> std::vector<std::vector<float>> {
   auto &current = load();
+  // A model made for embedding says how to pool in its file (`bert.pooling_type`)
+  // and needs its special tokens (`[CLS]`, `<eos>`); a chat model has neither.
+  char_type architecture[64] = {};
+  char_type pooling[16] = {};
+  const bool dedicated =
+      llama_model_meta_val_str(current.model, "general.architecture", architecture,
+                               sizeof architecture) > 0 &&
+      llama_model_meta_val_str(current.model,
+                               (string_type(architecture) + ".pooling_type").c_str(),
+                               pooling, sizeof pooling) > 0;
   std::vector<std::vector<llama_token>> texts;
   std::size_t total = 0;
   for (const auto &text : p_texts) {
     const auto size = static_cast<int32_t>(text.size());
-    std::vector<llama_token> tokens(text.size() + 1);
+    std::vector<llama_token> tokens(text.size() + 3);
     const auto count =
         llama_tokenize(current.vocabulary, text.data(), size, tokens.data(),
-                       static_cast<int32_t>(tokens.size()), false, false);
+                       static_cast<int32_t>(tokens.size()), dedicated, false);
     if (count <= 0)
       throw error("The model " + name() + " can't read \"" + text + "\".");
     tokens.resize(static_cast<std::size_t>(count));
@@ -652,7 +689,8 @@ auto builtin_model::embed(const std::vector<string_type> &p_texts)
     parameters.embeddings = true;
     // The last token has read the whole text. Measured on
     // eval/questions.txt, it ranked better than the mean of all tokens.
-    parameters.pooling_type = LLAMA_POOLING_TYPE_LAST;
+    parameters.pooling_type =
+        dedicated ? LLAMA_POOLING_TYPE_UNSPECIFIED : LLAMA_POOLING_TYPE_LAST;
     parameters.no_perf = true;
     current.embedding_context = llama_init_from_model(current.model, parameters);
     if (current.embedding_context == nullptr)

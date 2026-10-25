@@ -705,3 +705,33 @@ TEST_CASE("ovis release checks a package, then tags it.", "[packages]") {
   CHECK(ovis::project::list_version_tags(space.url("greet")).contains({1, 1, 0}));
   CHECK_THAT(space.ovis("release 1.1.0", "greet").output, ContainsSubstring("already exists"));
 }
+
+TEST_CASE("A package's # example: lines are checked by check and release.", "[packages]") {
+  packages space("examples");
+  space.package("greet", "1.0.0", "to greet (name):\n    show \"Hello,\", name\n");
+  space.write("greet/ovis.toml", "[package]\nname = \"greet\"\nversion = \"1.1.0\"\n");
+  // An example that reads, and one that doesn't.
+  space.write("greet/greet.ovis",
+              "# Greets someone.\n# example: greet \"Ana\"\nto greet (name):\n"
+              "    show \"Hello,\", name\n");
+  CHECK(space.ovis("check", "greet").status == 0);
+  space.write("greet/greet.ovis",
+              "# Greets someone.\n# example: greet \"Ana\"\n# example: greet 7 times\n"
+              "to greet (name):\n    show \"Hello,\", name\n");
+  const auto broken = space.ovis("check", "greet");
+  CHECK(broken.status != 0);
+  CHECK_THAT(broken.output, ContainsSubstring("greet.ovis (examples), line 3"));
+  space.git("greet", "commit -qam 1.1.0");
+  const auto refused = space.ovis("release 1.1.0", "greet");
+  CHECK(refused.status != 0);
+  CHECK_THAT(refused.output, ContainsSubstring("doesn't build as its users would"));
+  // One that is about other words than the phrase's.
+  space.write("greet/greet.ovis",
+              "# example: show a blank line\nto greet (name):\n    show \"Hello,\", name\n");
+  CHECK_THAT(space.ovis("check", "greet").output,
+             ContainsSubstring("doesn't use the words of the phrase below it"));
+  space.write("greet/greet.ovis", "# example: greet \"Ana\"\nto greet (name):\n"
+                                  "    show \"Hello,\", name\n");
+  space.git("greet", "commit -qam fixed");
+  CHECK(space.ovis("release 1.1.0", "greet").status == 0);
+}

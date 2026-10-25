@@ -7,4 +7,8 @@
 # order), and a generic's type variable's, which its bounds allow.
 
 expr  {a: comparable} comes before {b: comparable}   : bool => (< $a $b)
+      about: True when a is ordered before b; records say so with their own phrase of these words.
+      example: show "apple" comes before "banana"
 expr  {a: equatable} is the same as {b: equatable}   : bool => (= $a $b)
+      about: True when a and b are equal; records say so with their own phrase of these words.
+      example: show dune is the same as dune

@@ -406,9 +406,10 @@ ovis fix   <file or folder>   choose what each unclear line means; written
                               above it as @[meaning: …]
 ovis fmt   <file or folder>   put the @[…] lines in order (--check for CI)
 ovis phrases [words…]         the built-in phrases with these words
+ovis manual [words…]          the phrases a question is about, with what
+                              each does and an example (--in FILE, --line N)
 ovis check-phrases <folder>   whether the program's own phrases make
                               questions worse
-ovis lsp                      serve an editor (VS Code: editors/vscode)
 ovis model path | pull [3b|7b] | embed MODEL -o OUTPUT | stop
 ovis --version
 ```
@@ -629,7 +630,7 @@ Where the code is:
 
 | Path | What |
 | --- | --- |
-| `src/ovis/phrase/` | the front end: lexer, templates, chart parser, questions, lockfile, formatter, language server |
+| `src/ovis/phrase/` | the front end: lexer, templates, chart parser, questions, lockfile, formatter |
 | `phrases/` | the built-in phrases and the Ovis Core prelude behind them |
 | `src/ovis/builtin_model.cpp`, `language_model.cpp`, `model_daemon.cpp` | in-process llama.cpp, the HTTP model client, the daemon |
 | `src/ovis/sexpr.cpp`, `ast.cpp` | Ovis Core reader and parser |
@@ -641,4 +642,3 @@ Where the code is:
 | `tools/ovisup`, `tools/package.sh`, `.github/workflows/release.yml` | the installer, release packages, and the workflow that publishes them |
 | `examples/` | example programs |
 | `eval/` | labelled questions and programs for `ovis_eval`, which measures the model |
-| `editors/vscode` | the VS Code extension |
