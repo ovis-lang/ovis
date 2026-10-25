@@ -270,7 +270,7 @@ model embeds the 171 once, in 1–20 s).
 | bge-small-en-v1.5 (37 MB) | 17 / 22 | 18 / 24 | 56 ms |
 | nomic-embed-text-v1.5 (146 MB) | 16 / 23 | 15 / 26 | 0.2 s |
 | EmbeddingGemma-300M (334 MB) | 19 / 24 | 23 / 33 | 50 ms |
-| Qwen3-Embedding-0.6B (639 MB) | 18 / 24 | 24 / 31 | ~1 s |
+| Qwen3-Embedding-0.6B (639 MB) | 18 / 24 | 24 / 31 | ~0.2 s |
 
 Each with the prefixes its authors give (Qwen3 an instruction).
 EmbeddingGemma joined with the words counting 0.25 or 0.5: **25 / 33**
@@ -278,7 +278,29 @@ EmbeddingGemma joined with the words counting 0.25 or 0.5: **25 / 33**
 miss (`trimmed`, `reversed`, `rounded down`, `a copy of`, `in hex`); 3B's
 vectors did not. So the words now count half and `ovis manual` uses
 EmbeddingGemma when it is pulled. The weight was picked on these 34
-queries, with no held-out set yet (remaining-tasks.md).
+queries.
+
+Held out (`eval/manual-held-out.txt`, 30 queries written after the weight
+was chosen, about entries the first set doesn't cover), first / in the
+first 5, no prefixes but EmbeddingGemma's:
+
+| Embeddings | Joined, words ½ | Alone |
+| --- | --- | --- |
+| None (the words) | 1 / 10 | — |
+| bge-small-en-v1.5 | 10 / 19 | 13 / 20 |
+| nomic-embed-text-v1.5 | 9 / 21 | 12 / 21 |
+| EmbeddingGemma-300M | 12 / 24 (words ¼: 13 / 24; 1: 10 / 19; 3: 5 / 15) | 15 / 24 |
+| Qwen3-Embedding-0.6B | 15 / 24 | 19 / 25 |
+
+So embeddings hold up far from the words, and the weight was partly fitted:
+here the words cost 3 firsts, on the first set they gave 2. It stays ½
+(over both sets ½ gives 37 of 64 first, ¼ and alone 38): not tuned on
+these. Qwen3 reads better but is twice the size (639 MB) and ~0.2 s a
+query on 4 CPUs once cached (EmbeddingGemma ~60 ms; the first search
+embeds the 171 entries, 20 s against 6 s). Each model drops another's
+vectors from the cache file (one size to a file). Decided (owner,
+2026-10-25): EmbeddingGemma ships; Qwen3 is the switch if its licence or
+reading matters more than 3× the time.
 
 ## Not verified / known gaps
 
@@ -355,6 +377,7 @@ queries, with no held-out set yet (remaining-tasks.md).
 | 2026-10-21 | **Projects** ([proposals/projects.md](proposals/projects.md)), every recommendation: `ovis.toml` (a TOML subset) stays the one source of truth, C dependencies included; `cc` when no dependency needs CMake, otherwise a CMake project generated into `build/` each build, never edited; the author's own CMake file with its targets listed in `ovis.toml`; git dependencies pinned in the project's `ovis.lock`. |
 | 2026-10-21 | **Packages** ([proposals/packages.md](proposals/packages.md)), every recommendation: a package is a git repository, versions `vX.Y.Z` tags, the URL its name; minimal version selection, one version per major line (0.x: per minor); lines coexist as separate packages with distinct types; one version of a C library per program; the orphan rule for impls, the root included; only direct dependencies' phrases in scope, `NAME's phrase` to say which; dependencies built `--locked`, as source with a Core cache; exported unless under `internal/`. |
 | 2026-10-21 | **Phrases in sight** ([proposals/phrase-scope.md](proposals/phrase-scope.md)), every recommendation: the ranking shortcut takes a reading adding at most one content word; a file sees a package's phrases only with `use NAME`; a dependency's phrase is offered only when it shares a word with the span; nested `internal/` folders scope a program's (and a package's) phrases to their parent folder; a near-100 sweep in CI. |
+| 2026-10-25 | **The manual's embedding model**: EmbeddingGemma-300M (`ovis model pull embedding`), the best measured for its time and size, under the Gemma terms; Qwen3-Embedding-0.6B (Apache 2.0) reads a held-out set better (19 of 30 first alone, against 15) but takes 3× the time a query and twice the room. The words count half. |
 | 2026-10-23 | **Manual and editor** ([proposals/manual-and-editor.md](proposals/manual-and-editor.md)), every recommendation: the model orders real manual entries and never writes an explanation; the library's documentation is `about:`/`example:` lines in the `.phr` files, checked by tests; the program's, packages' and C's own words are documented by their comments and their uses; in the editor the model's reading is a hint with a quick fix, and only a build writes sigils by itself; no completion while typing; a line is checked when the cursor leaves it or Enter ends it. |
 
 ## Lessons learned
@@ -396,6 +419,7 @@ queries, with no held-out set yet (remaining-tasks.md).
 
 | Commit | Summary |
 | --- | --- |
+| (P2) | **The manual's held-out queries and model decided**: `eval/manual-held-out.txt` (30 queries written after the weight was chosen): words 1 of 30 first, EmbeddingGemma 12 joined, 15 alone, Qwen3-Embedding 15 and 19; the weight stays ½ (partly fitted, above); EmbeddingGemma ships (decisions); no code changed |
 | (P2) | **L4 with a model made for search** (what blocked L5): `builtin_model::embed` pools as the GGUF says (`ARCH.pooling_type`) with its special tokens, so BERT-like and Gemma/Qwen3 embedding models work (a chat model still by its last token); `ovis model pull embedding` (EmbeddingGemma-300M, `default_embedding_model`), which `ovis manual` uses when found (`find_embedding_model`, `--embedding-model`, `--embeddings` fails without it), never the chat model; query and entry prefixes (`manual_embeddings`); the words count half (`lexical_weight`). Fixed: `manual-embeddings.bin` written with one vector size for vectors of two models, after which every read failed and the search fell back to the words. `ovis_eval manual` reports embeddings alone too, `--lexical-weight`, `--query-prefix`, `--entry-prefix`, `--no-prefixes`. Measured (above): first 25 of 34 against 13. `manual_test`; test cases 255 (252 pass, 3 skipped), 3539 assertions |
 | (P2) | **L6, `ovis manual --html DIR`**: `write_manual_html` writes `index.html` (every entry under its topic) and one page per topic (per package and topic), an anchor per entry with its sentence, other ways of saying it and examples; with words, only the entries found. The links are checked in the files written (a page and an id must be there), problems go to stderr and exit 1; `manual_test`. Test cases 254 (251 pass, 3 skipped) |
 | (P2) | **R1, version 0.1.0**: `CMakeLists.txt` and `tools/ovisup` say 0.1.0 (they said 0.0.1, the version of the first tag), and a test (`ovisup_test`) fails if the two differ; deployment.md already named 0.1.0. Done at the owner's word before L5, L6 and L7's rest; the tag `v0.1.0` (the first `stable`) is not made yet. Test cases 253 (250 pass, 3 skipped) |

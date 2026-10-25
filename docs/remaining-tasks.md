@@ -102,13 +102,12 @@ extension on 2026-10-24: the smart manual is the help.
   unblocked: the model's `choose` now has to beat 25 of 34 first, among
   the first 5 it puts up (33 of 34 have the entry), for ~2 s a query on
   the CPU.
-- [ ] Add queries to `eval/manual-queries.txt` (the weight 0.5 was chosen
-  on these 34: a held-out half would say how much of 25 is fitted), and
-  for the program's, packages' and C's entries (§2.6).
-- [ ] Decide which embedding model ships: EmbeddingGemma (Gemma terms) is
-  the best measured; Qwen3-Embedding-0.6B (Apache 2.0, 639 MB) came
-  close alone (24 of 34 first) but takes 5× the time; bge-small (MIT, 37
-  MB) 18. `ovis model pull embedding` and the release packages.
+- [x] Held-out queries (`eval/manual-held-out.txt`, 30) and the shipped
+  model decided (EmbeddingGemma): state.md, "manual measured".
+- [ ] Queries for the program's, packages' and C's entries (§2.6), and a
+  floor with the embedding model if CI gets it (334 MB, cacheable).
+- [ ] Bundle the embedding model in the release packages, or keep `ovis
+  model pull embedding` (deployment.md).
 
 ### Projects without CMake
 
