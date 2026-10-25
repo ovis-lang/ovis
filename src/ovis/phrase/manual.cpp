@@ -6,6 +6,7 @@
 #include <map>
 #include <numeric>
 #include <optional>
+#include <set>
 #include <sstream>
 
 #include <ovis/core/modules.hpp>
@@ -352,6 +353,84 @@ auto example_of(const string_type &p_comment) -> std::optional<string_type> {
   return text;
 }
 
+// `a book has:` / `an author has:` (a record) and `a shape can:` (a trait):
+// its name, and whether it is a trait.
+struct declaration {
+  string_type name;
+  bool trait = false;
+};
+
+auto declaration_of(const string_type &p_line) -> std::optional<declaration> {
+  declaration result;
+  string_type text;
+  if (p_line.ends_with(" has:"))
+    text = p_line.substr(0, p_line.size() - 5);
+  else if (p_line.ends_with(" can:")) {
+    text = p_line.substr(0, p_line.size() - 5);
+    result.trait = true;
+  } else
+    return std::nullopt;
+  for (const char *article : {"a ", "an "})
+    if (text.starts_with(article)) {
+      result.name = trimmed(text.substr(std::string_view(article).size()));
+      break;
+    }
+  const auto words = words_of(result.name);
+  if (words.empty() || result.name.find_first_not_of("abcdefghijklmnopqrstuvwxyz"
+                                                     "ABCDEFGHIJKLMNOPQRSTUVWXYZ _-") !=
+                           string_type::npos)
+    return std::nullopt;
+  return result;
+}
+
+// `a circle is a shape:` → circle, shape.
+auto implementation_of(const string_type &p_line)
+    -> std::optional<std::pair<string_type, string_type>> {
+  if (!p_line.ends_with(":") || !(p_line.starts_with("a ") || p_line.starts_with("an ")))
+    return std::nullopt;
+  const auto at = p_line.find(" is a");
+  if (at == string_type::npos)
+    return std::nullopt;
+  auto record = trimmed(p_line.substr(p_line.starts_with("an ") ? 3 : 2, at - (p_line.starts_with("an ") ? 3 : 2)));
+  auto rest = p_line.substr(at + 5, p_line.size() - at - 6);
+  if (rest.starts_with("n "))
+    rest = rest.substr(2);
+  else if (rest.starts_with(" "))
+    rest = rest.substr(1);
+  else
+    return std::nullopt;
+  rest = trimmed(rest);
+  if (record.empty() || rest.empty())
+    return std::nullopt;
+  return std::make_pair(record, rest);
+}
+
+// `price_total = 5`, at the top of a package's file: its name and value.
+auto value_of(const string_type &p_line) -> std::optional<std::pair<string_type, string_type>> {
+  const auto equals = p_line.find(" = ");
+  if (equals == string_type::npos)
+    return std::nullopt;
+  const auto name = trimmed(p_line.substr(0, equals));
+  if (name.empty() || !std::ranges::all_of(name, [](char p_letter) {
+        return std::isalnum(static_cast<unsigned char>(p_letter)) || p_letter == '_';
+      }))
+    return std::nullopt;
+  return std::make_pair(name, trimmed(p_line.substr(equals + 3)));
+}
+
+auto indent_of(const string_type &p_line) -> std::size_t {
+  return p_line.find_first_not_of(" \t");
+}
+
+// `a, b and c` for a list of pieces.
+auto joined(const std::vector<string_type> &p_pieces, const char *p_separator = ", ")
+    -> string_type {
+  string_type result;
+  for (const auto &piece : p_pieces)
+    result += (result.empty() ? "" : p_separator) + piece;
+  return result;
+}
+
 } // namespace
 
 auto program_phrase_templates(const std::vector<phrase_file> &p_files,
@@ -365,7 +444,19 @@ auto program_phrase_templates(const std::vector<phrase_file> &p_files,
     std::size_t file, line;
     string_type text;
   };
+  // Records, traits and a package's top-level values (L7 rest): the same
+  // scan, since their headers are declared before any line is read.
+  struct declared {
+    phrase_template item;
+    header_shape shape;
+    string_type name;
+    bool trait = false;
+    std::vector<string_type> needs, gives;
+    std::size_t file = 0, line = 0;
+  };
   std::vector<written> found;
+  std::vector<declared> things;
+  std::vector<std::pair<string_type, string_type>> implementations;
   std::vector<use_line> uses;
   for (std::size_t index = 0; index < p_files.size(); ++index) {
     const auto &file = p_files[index];
@@ -373,18 +464,100 @@ auto program_phrase_templates(const std::vector<phrase_file> &p_files,
         file.name.empty() ? file.path.filename().string() : file.name;
     std::istringstream input(file.text);
     std::vector<string_type> comments;
+    std::set<string_type> values;
+    // The record or trait whose indented lines are being read, and the
+    // indent of its own lines (what is deeper is a default's body).
+    std::optional<std::size_t> open;
+    std::size_t open_indent = 0;
     string_type line;
     for (std::size_t number = 1; std::getline(input, line); ++number) {
       if (!line.empty() && line.back() == '\r')
         line.pop_back();
       const auto text = trimmed(line);
       const bool top = !line.empty() && line.front() != ' ' && line.front() != '\t';
+      if (top && text.front() != '#')
+        open.reset();
       if (text.empty()) {
         comments.clear();
       } else if (top && text.front() == '#') {
         comments.push_back(trimmed(text.substr(1)));
       } else if (text.front() == '#' || text.starts_with("@[")) {
         continue;
+      } else if (open && !top) {
+        const auto indent = indent_of(line);
+        if (open_indent == 0)
+          open_indent = indent;
+        if (indent == open_indent) {
+          auto &thing = things[*open];
+          // A trait's `describe (it) twice:` has a default; a field has none.
+          (text.ends_with(":") ? thing.gives : thing.needs)
+              .push_back(text.ends_with(":") ? text.substr(0, text.size() - 1) : text);
+        }
+      } else if (top && declaration_of(text)) {
+        const auto what = *declaration_of(text);
+        const auto above = std::exchange(comments, {});
+        declared thing{.name = what.name, .trait = what.trait, .file = index, .line = number};
+        auto words = words_of(what.name);
+        thing.shape.runs = {words};
+        thing.shape.pattern = joined(words, " ");
+        try {
+          auto read = read_templates("stmt  " + thing.shape.pattern + " => (nop)\n", shown);
+          if (read.size() != 1)
+            continue;
+          thing.item = std::move(read.front());
+        } catch (const error &) {
+          continue;
+        }
+        for (const auto &comment : above) {
+          if (const auto example = example_of(comment))
+            thing.item.examples.push_back(*example);
+          else
+            thing.item.about += (thing.item.about.empty() ? "" : " ") + comment;
+        }
+        thing.item.title = string_type(what.trait ? "a " : "a ") + what.name +
+                           (what.trait ? " (trait)" : " (record)");
+        thing.item.file = shown;
+        thing.item.line = number;
+        thing.item.package = file.package;
+        open = things.size();
+        open_indent = 0;
+        things.push_back(std::move(thing));
+      } else if (top && implementation_of(text)) {
+        comments.clear();
+        implementations.push_back(*implementation_of(text));
+        open.reset();
+      } else if (top && !file.package.empty() && value_of(text) &&
+                 values.insert(value_of(text)->first).second) {
+        // A package's constant: its name's words find it, its value is in
+        // the title. (A program's own names are variables, `--for`.)
+        auto name = value_of(text)->first;
+        const auto above = std::exchange(comments, {});
+        declared thing{.name = name, .file = index, .line = number};
+        std::ranges::replace(name, '_', ' ');
+        const auto words = words_of(name);
+        if (words.empty())
+          continue;
+        thing.shape.runs = {words};
+        thing.shape.pattern = joined(words, " ");
+        try {
+          auto read = read_templates("stmt  " + thing.shape.pattern + " => (nop)\n", shown);
+          if (read.size() != 1)
+            continue;
+          thing.item = std::move(read.front());
+        } catch (const error &) {
+          continue;
+        }
+        for (const auto &comment : above)
+          if (const auto example = example_of(comment))
+            thing.item.examples.push_back(*example);
+          else
+            thing.item.about += (thing.item.about.empty() ? "" : " ") + comment;
+        thing.item.title = text.size() > 60 ? text.substr(0, 57) + "..." : text;
+        thing.item.file = shown;
+        thing.item.line = number;
+        thing.item.package = file.package;
+        things.push_back(std::move(thing));
+        uses.push_back({index, number, text});
       } else if (top && text.starts_with("to ")) {
         const auto shape = header_of(text);
         const auto above = std::exchange(comments, {});
@@ -446,6 +619,53 @@ auto program_phrase_templates(const std::vector<phrase_file> &p_files,
                     "write `use " + item.package.substr(0, item.package.find('@')) +
                     "` to read it.";
     result.push_back(std::move(item));
+  }
+  for (auto &thing : things) {
+    auto &item = thing.item;
+    const auto sentence = [&](const string_type &p_text) {
+      item.about += (item.about.empty() ? "" : " ") + p_text;
+    };
+    if (thing.trait) {
+      if (!thing.needs.empty())
+        sentence("Needs " + joined(thing.needs, "; ") + ".");
+      if (!thing.gives.empty())
+        sentence("Gives " + joined(thing.gives, "; ") + " by default.");
+    } else if (!thing.needs.empty())
+      sentence("Has " + joined(thing.needs) + ".");
+    std::vector<string_type> who;
+    for (const auto &[record, trait] : implementations)
+      if (thing.trait && trait == thing.name)
+        who.push_back(record);
+      else if (!thing.trait && record == thing.name)
+        who.push_back(trait);
+    if (!who.empty())
+      sentence(string_type(thing.trait ? "Implemented by " : "Is a ") + joined(who) + ".");
+    const auto written_examples = item.examples.size();
+    for (const auto &use : uses) {
+      if (item.examples.size() >= std::max<std::size_t>(2, written_examples))
+        break;
+      if (use.file == thing.file && use.line == thing.line)
+        continue;
+      if (!reads_to(thing.shape, words_of(use.text)))
+        continue;
+      const auto &file = p_files[use.file];
+      item.examples.push_back(
+          use.text + "   (" +
+          (file.name.empty() ? file.path.filename().string() : file.name) +
+          ", line " + std::to_string(use.line) + ")");
+    }
+    result.push_back(std::move(item));
+  }
+  // The package's version, once (L7): the id has only the major.
+  for (auto &item : result) {
+    for (const auto &file : p_files)
+      if (!item.package.empty() && file.package == item.package &&
+          !file.package_version.empty()) {
+        item.about += (item.about.empty() ? "" : " ") + string_type("From ") +
+                      item.package.substr(0, item.package.find('@')) + " " +
+                      file.package_version + ".";
+        break;
+      }
   }
   return result;
 }

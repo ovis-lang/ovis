@@ -199,6 +199,8 @@ struct phrase_file {
   // When two versions of its package are in the program, how messages tell
   // its records from the other's: "log 1.1.0" ("a log 1.1.0 entry").
   string_type package_label;
+  // Its package's full version (`1.2.0`), for the manual; empty if unknown.
+  string_type package_version;
   // The names its project gives its direct dependencies, to their ids: a
   // line may start `log's …` to read with that package's phrases alone.
   std::map<string_type, string_type> aliases;

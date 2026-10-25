@@ -233,6 +233,55 @@ TEST_CASE("A phrase's # example: lines are its examples, not its sentence.", "[p
   CHECK(entries.front().examples.front() == "add tax to 50");
 }
 
+TEST_CASE("Records, traits and a package's values are entries, with their version.",
+          "[phrase][manual]") {
+  ovis::phrase::phrase_file file{
+      .path = "shapes.ovis",
+      .name = "shapes.ovis",
+      .text = "# Something with sides.\n"
+              "a square has:\n"
+              "    side (decimal)\n"
+              "    label (text, \"none\")\n"
+              "\n"
+              "a shape can:\n"
+              "    area of (it) gives a decimal\n"
+              "    describe (it) twice:\n"
+              "        describe it\n"
+              "\n"
+              "a square is a shape:\n"
+              "    area of (it):\n"
+              "        give back side of it\n"
+              "# The most sides there are.\n"
+              "max_sides = 12\n"
+              "box = a square with side 2\n"};
+  file.package = "geometry@1";
+  file.package_version = "1.4.0";
+  const auto entries = ovis::phrase::program_phrase_templates({file});
+  const auto find = [&](const std::string &p_title) {
+    const auto at = std::ranges::find(entries, p_title, &ovis::phrase::phrase_template::title);
+    REQUIRE(at != entries.end());
+    return *at;
+  };
+  const auto square = find("a square (record)");
+  CHECK(square.about.find("Something with sides. Has side (decimal), label") == 0);
+  CHECK(square.about.find("Is a shape.") != std::string::npos);
+  CHECK(square.about.find("From geometry 1.4.0.") != std::string::npos);
+  REQUIRE(!square.examples.empty());
+  CHECK(square.examples.front() == "box = a square with side 2   (shapes.ovis, line 16)");
+  const auto shape = find("a shape (trait)");
+  CHECK(shape.about.find("Needs area of (it) gives a decimal.") != std::string::npos);
+  CHECK(shape.about.find("Gives describe (it) twice by default.") != std::string::npos);
+  CHECK(shape.about.find("Implemented by square.") != std::string::npos);
+  const auto value = find("max_sides = 12");
+  CHECK(value.about.starts_with("The most sides there are."));
+  const auto found = ovis::phrase::manual_search({"max", "sides"}, entries, 3);
+  REQUIRE(!found.empty());
+  CHECK(found.front().pattern == "max_sides = 12");
+  // A program's own top-level names are variables, not entries.
+  file.package.clear();
+  CHECK(ovis::phrase::program_phrase_templates({file}).size() == 2);
+}
+
 namespace {
 
 auto c_entries_of(const std::string &p_program, const std::string &p_words)

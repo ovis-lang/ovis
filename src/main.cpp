@@ -1646,6 +1646,7 @@ auto load_program_files(const arguments &p_arguments,
                                            &ovis::project::resolved_package::name);
     for (auto &file : loaded) {
       file.aliases = package.dependencies;
+      file.package_version = package.package_version.text();
       if (copies > 1)
         file.package_label = package.name + " " + package.package_version.text();
     }
