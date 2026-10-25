@@ -208,6 +208,70 @@ auto manual_search(const std::vector<string_type> &p_words,
   return result;
 }
 
+namespace {
+
+constexpr string_view_type manual_instructions =
+    "You help an author find a phrase in the manual of a programming language "
+    "whose code is plain English. You are shown what the author asked and "
+    "numbered entries of the manual, each a phrase and what it does. Answer "
+    "with the number of the entry that does what the author asks. If none "
+    "does, answer with the number of \"none of these\".";
+
+// When the model's pick moves first: as sure as a question's answer must be
+// to be taken. 3B is seldom sure (most picks 25-50%), and its unsure picks
+// were wrong more often than the search's first (state.md, "manual
+// measured": always its pick, 21 of 34 first; only a sure one, 28).
+constexpr double sure_choice = 0.6;
+constexpr double sure_margin = 0.3;
+
+} // namespace
+
+auto manual_choice_probabilities(const string_type &p_query,
+                                 const std::vector<manual_entry> &p_entries,
+                                 english::language_model &p_model)
+    -> std::vector<double> {
+  if (p_entries.empty() || p_entries.size() >= english::max_choice_options)
+    throw error("The model chooses among 1 to " +
+                std::to_string(english::max_choice_options - 1) + " entries.");
+  auto text = "Asked: " + p_query + "\n";
+  for (std::size_t index = 0; index < p_entries.size(); ++index) {
+    const auto &entry = p_entries[index];
+    text += string_type(1, english::choice_digit(index + 1)) + ". " + entry.pattern;
+    if (!entry.about.empty())
+      text += ": " + entry.about;
+    text += "\n";
+  }
+  text += string_type(1, english::choice_digit(p_entries.size() + 1)) +
+          ". none of these\nAnswer:";
+  return p_model.choose({{"system", string_type(manual_instructions)}, {"user", text}},
+                        p_entries.size() + 1);
+}
+
+auto manual_choose(const string_type &p_query, std::vector<manual_entry> p_entries,
+                   english::language_model &p_model) -> std::vector<manual_entry> {
+  const auto count = std::min(p_entries.size(), manual_choice_count);
+  if (count < 2)
+    return p_entries;
+  std::vector<double> probabilities;
+  try {
+    probabilities = manual_choice_probabilities(
+        p_query, {p_entries.begin(), p_entries.begin() + static_cast<std::ptrdiff_t>(count)},
+        p_model);
+  } catch (const error &) {
+    return p_entries;
+  }
+  std::vector<std::size_t> ranked(probabilities.size());
+  std::iota(ranked.begin(), ranked.end(), 0);
+  std::ranges::stable_sort(ranked, std::ranges::greater{},
+                           [&](std::size_t p_index) { return probabilities[p_index]; });
+  const auto best = ranked[0];
+  if (best < count && probabilities[best] >= sure_choice &&
+      probabilities[best] - probabilities[ranked[1]] >= sure_margin)
+    std::rotate(p_entries.begin(), p_entries.begin() + static_cast<std::ptrdiff_t>(best),
+                p_entries.begin() + static_cast<std::ptrdiff_t>(best) + 1);
+  return p_entries;
+}
+
 auto manual_entry_of(const phrase_template &p_item) -> manual_entry {
   manual_entry entry{.topic = std::filesystem::path(p_item.file).stem().string(),
                      .package = p_item.package,

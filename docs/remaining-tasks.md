@@ -88,14 +88,10 @@ manual` (lexical, embeddings, then the model choosing among real entries,
 never writing). The owner dropped all editor work and the VS Code
 extension on 2026-10-24: the smart manual is the help.
 
-- [ ] L5, unblocked (below). (R1, version 0.1.0, and L6, `manual --html`, are done). L1–L4,
-  L8 (the names in scope at a line, `--for`), L9 (a package's `# example:`
-  lines, checked by `check` and `release`) and L10 (C's entries: functions,
-  macros, constants and structs of the `use`d headers, by name split into
-  words and parameter names, with signature, comment and uses) are done
-  and L7 (`to …:` phrases, records, traits, a package's constants, with `#` comments, uses, package and version)
-  (`ovis manual` is lexical plus embeddings over the library and a
-  `phrases/` folder).
+- [x] L5 (state.md, "manual measured"): the chat model chooses among the
+  first 5 found, and its pick moves first only when it is sure: first 28 of
+  34 against 25, held out 16 of 30 against 12, ~2.9 s a query on the CPU.
+  L1–L10 and R1 are all done, so the manual's plan is finished.
 - [x] L4 with a real embedding model (state.md, "manual measured"):
   EmbeddingGemma-300M beats the words (first 25 of 34 against 13, in the
   first 5 33 against 21), so `ovis manual` uses it when it is pulled. L5 is
@@ -159,8 +155,7 @@ Done: ovisup, relocatable packages, the release workflow
   [proposals/manual-and-editor.md](proposals/manual-and-editor.md)):
   CMakeLists.txt and ovisup say 0.1.0, kept one by a test.
 - [ ] The tag `v0.1.0`, the first `stable`: nightly should install
-  everywhere first (and the manual's L5 and L7 rest, if the release
-  is to carry them).
+  everywhere first (the manual's L5 and L7 rest are done).
 - [ ] macOS x86-64 packages, if anyone needs them (a `macos-15-intel`
   runner); musl or older-glibc Linux packages (build in an older container)
   if glibc 2.39 proves too new.

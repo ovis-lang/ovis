@@ -1,6 +1,6 @@
 # Project state
 
-Last updated: 2026-10-25 (L4 with EmbeddingGemma, unblocking L5; L6, `ovis manual --html`; R1, version 0.1.0; L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
+Last updated: 2026-10-25 (L5, the model's sure pick first in `ovis manual`; L4 with EmbeddingGemma; L6, `ovis manual --html`; R1, version 0.1.0; L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
 release packages and ovisup)
 (branch `claude/llm-matching-failure-hypothesis-xwp3nu`).
 Last dreamed: 2026-10-25 at e79728f (history to the manual's plan, scope S1–S5, archived).
@@ -41,7 +41,7 @@ readings only where a line is unclear. The design is in
 
 ## Verified
 
-- `./build/test_ovis`: 255 test cases (252 pass, 3 skipped) and 3539 assertions pass. Three cases are skipped unless
+- `./build/test_ovis`: 256 test cases (253 pass, 3 skipped) and 3544 assertions pass. Three cases are skipped unless
   `OVIS_TEST_MODEL` is set. The C-library cases skip themselves when
   libclang, zlib or SQLite headers are missing. The `[docs]` case keeps the
   tracking documents under 500 lines and checks their links.
@@ -302,6 +302,24 @@ vectors from the cache file (one size to a file). Decided (owner,
 2026-10-25): EmbeddingGemma ships; Qwen3 is the switch if its licence or
 reading matters more than 3× the time.
 
+L5, the chat model choosing among the first 5 (`ovis_eval manual
+--choose-model`, 3B on 4 CPUs, after EmbeddingGemma joined with the words),
+first / in the first 5:
+
+| | 34 queries | Held out (30) |
+| --- | --- | --- |
+| The search (EmbeddingGemma and words) | 25 / 33 | 12 / 24 |
+| Its pick always first | 21 / 33 | 12 / 24 |
+| Its pick first only when sure (60%, 30 points ahead) | **28 / 33** | **16 / 24** |
+
+3B is seldom sure (most picks 25–50%), and its unsure picks undo the
+search's right firsts as often as they fix them. Its sure picks (7 of 64,
+64–90%) were all right and none moved a right first entry down: `in
+capitals`, `average of`, `as text`, `squared`, `last item of`, `remove
+item`, `number of entries in`. "None" was likeliest once. ~2.9 s a query
+once loaded (the daemon keeps it; ~6 s with the start). So `ovis manual`
+asks the model when there is one and moves only a sure pick.
+
 ## Not verified / known gaps
 
 - The prompt cache's states (~3 MB each) are never cleaned up.
@@ -419,6 +437,7 @@ reading matters more than 3× the time.
 
 | Commit | Summary |
 | --- | --- |
+| (P2) | **L5, the model choosing in `ovis manual`**: `manual_choice_probabilities` asks the chat model (one `choose`) which of the first 5 entries found (pattern and `about`) does what the query asks, or "none of these"; `manual_choose` moves its pick first only when sure (60%, 30 points ahead), else the order stands; `ovis manual` uses it with the daemon's model when there are words, not `--offline` or `--html`. `ovis_eval manual --choose-model FILE` measures it: first 28 of 34 against 25, held out 16 of 30 against 12, no right first lost, ~2.9 s a query. `manual_test`; test cases 256 (253 pass, 3 skipped), 3544 assertions |
 | (P2) | **The manual's held-out queries and model decided**: `eval/manual-held-out.txt` (30 queries written after the weight was chosen): words 1 of 30 first, EmbeddingGemma 12 joined, 15 alone, Qwen3-Embedding 15 and 19; the weight stays ½ (partly fitted, above); EmbeddingGemma ships (decisions); no code changed |
 | (P2) | **L4 with a model made for search** (what blocked L5): `builtin_model::embed` pools as the GGUF says (`ARCH.pooling_type`) with its special tokens, so BERT-like and Gemma/Qwen3 embedding models work (a chat model still by its last token); `ovis model pull embedding` (EmbeddingGemma-300M, `default_embedding_model`), which `ovis manual` uses when found (`find_embedding_model`, `--embedding-model`, `--embeddings` fails without it), never the chat model; query and entry prefixes (`manual_embeddings`); the words count half (`lexical_weight`). Fixed: `manual-embeddings.bin` written with one vector size for vectors of two models, after which every read failed and the search fell back to the words. `ovis_eval manual` reports embeddings alone too, `--lexical-weight`, `--query-prefix`, `--entry-prefix`, `--no-prefixes`. Measured (above): first 25 of 34 against 13. `manual_test`; test cases 255 (252 pass, 3 skipped), 3539 assertions |
 | (P2) | **L6, `ovis manual --html DIR`**: `write_manual_html` writes `index.html` (every entry under its topic) and one page per topic (per package and topic), an anchor per entry with its sentence, other ways of saying it and examples; with words, only the entries found. The links are checked in the files written (a page and an id must be there), problems go to stderr and exit 1; `manual_test`. Test cases 254 (251 pass, 3 skipped) |

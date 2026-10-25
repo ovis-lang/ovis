@@ -366,6 +366,28 @@ auto manual_search(const std::vector<string_type> &p_words,
                    const manual_embeddings &p_embeddings = {})
     -> std::vector<manual_entry>;
 
+// How many of a search's first entries the model chooses among (L5): the
+// first 5 hold the entry meant for 33 of 34 queries (state.md, "manual
+// measured"), and each more makes the question longer.
+inline constexpr std::size_t manual_choice_count = 5;
+
+// L5: how likely the chat model finds each of `p_entries` (at most
+// `english::max_choice_options - 1`) to do what `p_query` asks, then "none of
+// these", summing to 1. The model only reads the entries' own words. Throws
+// `error`.
+auto manual_choice_probabilities(const string_type &p_query,
+                                 const std::vector<manual_entry> &p_entries,
+                                 english::language_model &p_model)
+    -> std::vector<double>;
+
+// The search's entries with the model's pick first (L5): the first
+// `manual_choice_count` are shown to the model, and its pick moves to the
+// front only when it is sure (60%, and 30 points ahead of the next, "none of
+// these" included), as a question's answer is taken. Everything else keeps
+// the search's order, and a model that fails leaves it as it was.
+auto manual_choose(const string_type &p_query, std::vector<manual_entry> p_entries,
+                   english::language_model &p_model) -> std::vector<manual_entry>;
+
 // The manual as web pages in `p_directory` (L6, `ovis manual --html DIR`):
 // `index.html` lists every entry under its topic, and one page per topic (per
 // package and topic) has each entry with its sentence, other ways of saying

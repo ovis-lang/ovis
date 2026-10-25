@@ -130,7 +130,7 @@ folder beside FILE and the project's `[build] phrases`; `--line N` adds the
 words of line N of FILE (not sigils, comments, texts or numbers); no words
 lists every phrase by topic. The program's and its packages' `to …:` phrases are entries too (L7, `program_phrase_templates`):
 the `#` lines above a header are its `about`, up to two lines that read to it its examples, the package
-its origin. What a file's `use "x.h"` lines import are entries too (L10, `c_header_templates`): functions, function-like and generic macros, constants and structs, found by the name split into words and the parameters' names, titled with the C signature in Ovis's types (`phrase_template::title`), the header's comment sentence, and the program's uses of the name as examples (those it calls first). Records (`a book (record)`: fields, the traits it is), traits (`a shape (trait)`: needed and default phrases, who implements it) and a package's top-level constants (`max_sides = 12`) are entries too (L7 rest, same scan, `#` lines above as `about`, the program's lines that mention the name as examples); a package's entries end with `From NAME 1.4.0.` (`phrase_file::package_version`). Not yet: the model choosing (L5).
+its origin. What a file's `use "x.h"` lines import are entries too (L10, `c_header_templates`): functions, function-like and generic macros, constants and structs, found by the name split into words and the parameters' names, titled with the C signature in Ovis's types (`phrase_template::title`), the header's comment sentence, and the program's uses of the name as examples (those it calls first). Records (`a book (record)`: fields, the traits it is), traits (`a shape (trait)`: needed and default phrases, who implements it) and a package's top-level constants (`max_sides = 12`) are entries too (L7 rest, same scan, `#` lines above as `about`, the program's lines that mention the name as examples); a package's entries end with `From NAME 1.4.0.` (`phrase_file::package_version`).
 
 *Embeddings (L4, `manual.cpp`), by a model made for search.* `ovis model
 pull embedding` fetches EmbeddingGemma-300M (`default_embedding_model`, 334
@@ -152,6 +152,17 @@ when the file is written): after an edit only the changed entries are
 embedded, a package's or the program's too. A model that can't embed leaves
 the search lexical. Measured by `ovis_eval manual eval/manual-queries.txt`
 (state.md). CI keeps the words' floor with `--no-model`.
+
+*The model choosing (L5, `manual_choose`).* After the search, when there
+are words and not `--offline` or `--html`, the chat model (`make_model`,
+the daemon's) is shown the query and the first 5 entries, each its pattern
+and `about`, and "none of these" (`manual_choice_probabilities`, one
+`choose`). Its pick moves first only when it is sure, as a question's
+answer is taken (60%, 30 points ahead of the next, "none" included); the
+rest keep the search's order, and no model or a failing one leaves the
+order as it was. It moves real entries and never writes a word (decision
+1). Measured with `ovis_eval manual --choose-model FILE` (state.md):
+always taking its pick loses to the search; only a sure one wins.
 
 **`ovis fmt`** (`formatted_source`, `format.cpp`): text only, no build.
 Each code line's sigils go above it at its indentation, spaced as builds

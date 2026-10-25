@@ -165,6 +165,75 @@ TEST_CASE("A model finds a phrase by its meaning where the words miss it.",
             .pattern == "TEXT in capitals");
 }
 
+namespace {
+
+// Answers every choice with the probabilities it is given, and keeps the
+// question it was asked.
+class scripted_chooser final : public ovis::english::language_model {
+public:
+  std::vector<double> answer;
+  std::string asked;
+  std::size_t options = 0;
+  auto name() const -> std::string override { return "scripted"; }
+  auto chat(const std::vector<ovis::english::chat_message> &, std::string_view)
+      -> std::string override {
+    return {};
+  }
+  auto choose(const std::vector<ovis::english::chat_message> &p_messages,
+              std::size_t p_options) -> std::vector<double> override {
+    if (answer.empty())
+      throw ovis::error("no model");
+    asked = p_messages.back().content;
+    options = p_options;
+    return answer;
+  }
+};
+
+} // namespace
+
+TEST_CASE("The model moves the entry it is sure of first, among those found.",
+          "[phrase][manual]") {
+  const auto found = ovis::phrase::manual_search({"text"}, {}, 8);
+  REQUIRE(found.size() == 8);
+  const auto patterns = [](const std::vector<ovis::phrase::manual_entry> &p_entries) {
+    std::vector<std::string> result;
+    for (const auto &entry : p_entries)
+      result.push_back(entry.pattern);
+    return result;
+  };
+
+  // Sure of the third: it goes first, and the rest keep their order. The
+  // model is shown the first 5 and "none of these", in the entries' words.
+  scripted_chooser model;
+  model.answer = {0.05, 0.05, 0.8, 0.05, 0.03, 0.02};
+  const auto chosen = ovis::phrase::manual_choose("make it big", found, model);
+  CHECK(model.options == ovis::phrase::manual_choice_count + 1);
+  CHECK(model.asked.find("Asked: make it big\n") == 0);
+  CHECK(model.asked.find("3. " + found[2].pattern + ": " + found[2].about) !=
+        std::string::npos);
+  CHECK(model.asked.find("6. none of these") != std::string::npos);
+  CHECK(model.asked.find(found[5].pattern) == std::string::npos);
+  auto expected = patterns(found);
+  std::rotate(expected.begin(), expected.begin() + 2, expected.begin() + 3);
+  CHECK(patterns(chosen) == expected);
+
+  // Not sure enough, or surest that none fits, or failing: the search's order.
+  for (const auto &answer : {std::vector<double>{0.1, 0.5, 0.3, 0.05, 0.03, 0.02},
+                             std::vector<double>{0.1, 0.05, 0.02, 0.02, 0.01, 0.8},
+                             std::vector<double>{}}) {
+    model.answer = answer;
+    CHECK(patterns(ovis::phrase::manual_choose("make it big", found, model)) ==
+          patterns(found));
+  }
+
+  // Too few to choose among: nothing is asked.
+  model.answer = {1, 0};
+  model.options = 0;
+  CHECK(patterns(ovis::phrase::manual_choose("make it big", {found[0]}, model)) ==
+        std::vector{found[0].pattern});
+  CHECK(model.options == 0);
+}
+
 TEST_CASE("A program's and its packages' phrases are entries, with their comments "
           "and uses.",
           "[phrase][manual]") {

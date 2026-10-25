@@ -81,7 +81,9 @@ Commands:
              ones the words find), links checked;
              finds meanings too with the embedding model when it is there
              (ovis model pull embedding; --embeddings: fail without it,
-             --embedding-model PATH: another; --offline: words alone)
+             --embedding-model PATH: another; --offline: words alone),
+             and the chat model, when there is one, moves the entry it is
+             sure of first
   check-phrases
              whether this program's own phrases (its `to …:` blocks and
              helper files) make the questions Ovis asks about other lines
@@ -2336,8 +2338,23 @@ auto manual_command(const arguments &p_arguments, const char *p_argument_zero)
     } else if (p_arguments.manual_embeddings)
       throw ovis::error("No embedding model found. Run `ovis model pull embedding`.");
   }
-  const auto entries = ovis::phrase::manual_search(
+  auto entries = ovis::phrase::manual_search(
       words, more, p_arguments.manual_html.empty() ? 6 : 0, embeddings);
+  // The chat model picks among the first found when it is sure (L5): it
+  // moves only real entries, and without it the order stands.
+  if (!words.empty() && p_arguments.manual_html.empty() && !p_arguments.offline) {
+    std::unique_ptr<ovis::english::language_model> chooser;
+    try {
+      chooser = make_model(p_arguments, p_argument_zero);
+    } catch (const ovis::error &) {
+    }
+    if (chooser) {
+      std::string query;
+      for (const auto &word : words)
+        query += (query.empty() ? "" : " ") + word;
+      entries = ovis::phrase::manual_choose(query, std::move(entries), *chooser);
+    }
+  }
   if (entries.empty()) {
     std::cout << "No phrase is about those words. `ovis manual` lists them all.\n";
     return 1;

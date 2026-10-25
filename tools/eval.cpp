@@ -43,7 +43,8 @@
 // entry meant: where it comes for the words alone and for the words joined
 // with embeddings (L4). `--no-model` measures the words alone; with
 // `--min-first` and `--min-shown` that fails the run when fewer queries have
-// the entry first, or in the first 5 (CI's floor).
+// the entry first, or in the first 5 (CI's floor). `--choose-model FILE`: a
+// chat model then chooses among the first 5 found (L5), measured against them.
 //
 // `programs`: the programs of eval/programs (M1.14), each with the readings
 // its author meant in `# expect` lines: questions per program, how each was
@@ -841,12 +842,19 @@ constexpr std::size_t manual_shown = 5;
 auto run_manual(const std::vector<question_case> &p_cases,
                 ovis::english::language_model *p_model, int p_only,
                 ranking_floor p_floor, const string_type &p_query_prefix = {},
-                const string_type &p_entry_prefix = {}, double p_lexical_weight = 0.5) -> int {
+                const string_type &p_entry_prefix = {}, double p_lexical_weight = 0.5,
+                ovis::english::language_model *p_chooser = nullptr) -> int {
   struct tally {
     int first = 0;
     int shown = 0;
   };
   tally words, meaning, alone;
+  // L5, the chat model choosing among the first 5 found with embeddings: its
+  // pick always moved first, and only when it is sure (`manual_choose`, as
+  // `ovis manual` does).
+  tally picked, sure;
+  int none_first = 0;
+  double choose_milliseconds = 0;
   int total = 0;
   const auto count = [](tally &p_tally, std::size_t p_rank) {
     p_tally.first += p_rank == 1;
@@ -854,6 +862,9 @@ auto run_manual(const std::vector<question_case> &p_cases,
   };
   const auto cache = ovis::english::model_cache_directory() / "manual-embeddings.bin";
   double milliseconds = 0;
+  // Loading isn't part of a query's time.
+  if (p_chooser != nullptr)
+    p_chooser->choose({{"user", "1. yes\n2. no\nAnswer:"}}, 2);
   for (std::size_t index = 0; index < p_cases.size(); ++index) {
     if (p_only != 0 && static_cast<int>(index) + 1 != p_only)
       continue;
@@ -871,7 +882,8 @@ auto run_manual(const std::vector<question_case> &p_cases,
     const auto by_words = manual_rank(
         ovis::phrase::manual_search(query, {}, 0), expected);
     count(words, by_words);
-    std::size_t by_meaning = 0, by_alone = 0;
+    std::size_t by_meaning = 0, by_alone = 0, by_picked = 0;
+    double pick_probability = 0;
     if (p_model != nullptr) {
       const auto start = std::chrono::steady_clock::now();
       ovis::phrase::manual_embeddings options{.model = p_model,
@@ -889,6 +901,37 @@ auto run_manual(const std::vector<question_case> &p_cases,
       by_alone = manual_rank(ovis::phrase::manual_search(query, {}, 0, options),
                              expected);
       count(alone, by_alone);
+      if (p_chooser != nullptr) {
+        options.lexical_weight = p_lexical_weight;
+        const auto found = ovis::phrase::manual_search(query, {}, 0, options);
+        string_type asked;
+        for (const auto &word : query)
+          asked += (asked.empty() ? "" : " ") + word;
+        const auto choose_start = std::chrono::steady_clock::now();
+        const auto count_shown = std::min(found.size(), ovis::phrase::manual_choice_count);
+        const auto probabilities = ovis::phrase::manual_choice_probabilities(
+            asked, {found.begin(), found.begin() + static_cast<std::ptrdiff_t>(count_shown)},
+            *p_chooser);
+        choose_milliseconds += std::chrono::duration<double, std::milli>(
+                                   std::chrono::steady_clock::now() - choose_start)
+                                   .count();
+        std::vector<std::size_t> all(probabilities.size());
+        std::iota(all.begin(), all.end(), 0);
+        std::ranges::stable_sort(all, std::ranges::greater{},
+                                 [&](std::size_t p_index) { return probabilities[p_index]; });
+        none_first += all[0] == count_shown;
+        const auto best = static_cast<std::size_t>(
+            std::ranges::max_element(probabilities.begin(), probabilities.end() - 1) -
+            probabilities.begin());
+        auto always = found;
+        std::rotate(always.begin(), always.begin() + static_cast<std::ptrdiff_t>(best),
+                    always.begin() + static_cast<std::ptrdiff_t>(best) + 1);
+        count(picked, manual_rank(always, expected));
+        by_picked = manual_rank(ovis::phrase::manual_choose(asked, found, *p_chooser),
+                                expected);
+        count(sure, by_picked);
+        pick_probability = all[0] == count_shown ? -probabilities[all[0]] : probabilities[all[0]];
+      }
     }
     ++total;
     std::cout << "#" << index + 1 << " " << expected << ": words "
@@ -897,6 +940,10 @@ auto run_manual(const std::vector<question_case> &p_cases,
       std::cout << ", with embeddings "
                 << (by_meaning ? std::to_string(by_meaning) : "-")
                 << ", embeddings alone " << (by_alone ? std::to_string(by_alone) : "-");
+    if (p_chooser != nullptr)
+      std::cout << ", chosen " << (by_picked ? std::to_string(by_picked) : "-") << " ("
+                << (pick_probability < 0 ? "none " : "")
+                << int(std::abs(pick_probability) * 100 + 0.5) << "%)";
     std::cout << "   (" << p_cases[index].program.substr(
                                 0, p_cases[index].program.size() - 1)
               << ")\n";
@@ -912,6 +959,13 @@ auto run_manual(const std::vector<question_case> &p_cases,
               << "Ranking, embeddings alone: first in " << alone.first << " of "
               << total << ", in the first " << manual_shown << " in " << alone.shown
               << ".\n";
+  if (p_chooser != nullptr)
+    std::cout << "Chosen by the model among the first " << ovis::phrase::manual_choice_count
+              << ": its pick always first, first in " << picked.first
+              << "; only when sure (ovis manual), first in " << sure.first << " (in the first "
+              << manual_shown << ": " << sure.shown << "); \"none\" likeliest "
+              << none_first << " times; " << std::fixed << std::setprecision(0)
+              << choose_milliseconds / std::max(1, total) << " ms a query.\n";
   // The floor is for the words alone: it needs no model.
   if (words.first < p_floor.first || words.shown < p_floor.shown) {
     std::cout << "FAIL: below the floor (" << p_floor.first << " first, "
@@ -928,6 +982,8 @@ auto main(int p_count, char **p_arguments) -> int {
     std::vector<string_type> arguments(p_arguments + 1,
                                        p_arguments + p_count);
     std::optional<std::filesystem::path> model_path;
+    // `manual`: the chat model that chooses among the entries found (L5).
+    std::optional<std::filesystem::path> choose_model_path;
     int only = 0;
     int threads = 0;
     std::size_t orders = 1;
@@ -945,6 +1001,8 @@ auto main(int p_count, char **p_arguments) -> int {
     for (std::size_t index = 0; index < arguments.size(); ++index) {
       if (arguments[index] == "--model-path" && index + 1 < arguments.size())
         model_path = arguments[++index];
+      else if (arguments[index] == "--choose-model" && index + 1 < arguments.size())
+        choose_model_path = arguments[++index];
       else if (arguments[index] == "--only" && index + 1 < arguments.size())
         only = std::stoi(arguments[++index]);
       else if (arguments[index] == "--threads" && index + 1 < arguments.size())
@@ -1000,7 +1058,7 @@ auto main(int p_count, char **p_arguments) -> int {
                    "[--no-model] [--cpu] [--threads N]\n"
                    "       ovis_eval manual <queries.txt> [--model-path FILE] "
                    "[--no-model] [--cpu] [--threads N] [--only N] "
-                   "[--min-first N] [--min-shown N]\n"
+                   "[--min-first N] [--min-shown N] [--choose-model FILE]\n"
                    "       ovis_eval rewrites <cases.txt> [--model-path FILE] "
                    "[--only N] [--cpu] [--threads N]\n";
       return 2;
@@ -1040,9 +1098,14 @@ auto main(int p_count, char **p_arguments) -> int {
       query_prefix = embedder.query_prefix;
       entry_prefix = embedder.entry_prefix;
     }
-    if (positional[0] == "manual")
+    if (positional[0] == "manual") {
+      std::unique_ptr<ovis::english::builtin_model> chooser;
+      if (choose_model_path)
+        chooser = std::make_unique<ovis::english::builtin_model>(ovis::english::builtin_options{
+            .location = {.file = *choose_model_path}, .use_gpu = !cpu, .threads = threads});
       return run_manual(read_question_cases(positional[1]), &model, only, floor,
-                        query_prefix, entry_prefix, lexical_weight);
+                        query_prefix, entry_prefix, lexical_weight, chooser.get());
+    }
     // Loading isn't part of a question's time.
     const auto load = [](ovis::english::language_model &p_model) {
       const auto start = std::chrono::steady_clock::now();
