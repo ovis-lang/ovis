@@ -321,6 +321,15 @@ auto program_phrase_templates(const std::vector<phrase_file> &p_files,
                               const std::filesystem::path &p_from = {})
     -> std::vector<phrase_template>;
 
+// A package's `# example: LINE` comments (L9), above a `to …:` header or any
+// definition: each line must read with no model, in its own file's package
+// (the files from `p_first` on are the package's; those before are its
+// dependencies'), and above a header it must use the header's words. The
+// problems, cited by file and the comment's line; none when all are right.
+auto check_package_examples(const std::vector<phrase_file> &p_files, std::size_t p_first,
+                            const front_end_options &p_options = {})
+    -> std::vector<string_type>;
+
 // The built-in phrases and `p_more` (a program's own `phrases/` folders)
 // that a query is about, best first, at most `p_limit` (0: all); with no
 // words, every one by its file. With `p_embeddings` the lexical order and the

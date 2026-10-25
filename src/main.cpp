@@ -693,6 +693,10 @@ auto edit_dependencies(arguments &p_arguments, const std::filesystem::path &p_fi
 // build and how; flags on the command line add to its settings. A single
 // file named builds as before, ignoring any project.
 auto apply_project(arguments &p_arguments) -> void {
+  const auto package_only = [](const arguments &p_checked, const ovis::project::project &p_project) {
+    return p_checked.command == "check" && p_project.package &&
+           !std::filesystem::exists(p_project.root / "main.ovis");
+  };
   if (!takes_project(p_arguments.command) || p_arguments.command == "init")
     return;
   std::optional<std::filesystem::path> file;
@@ -742,7 +746,7 @@ auto apply_project(arguments &p_arguments) -> void {
     return;
   const auto project = ovis::project::load_project(*file);
   if (p_arguments.command != "update" && p_arguments.command != "tree" &&
-      !is_dependency_command(p_arguments.command) &&
+      !is_dependency_command(p_arguments.command) && !package_only(p_arguments, project) &&
       !std::filesystem::exists(project.root / "main.ovis"))
     throw ovis::error(project.root.string() + " has no main.ovis: a project's "
                                               "program starts there.");
@@ -773,7 +777,8 @@ auto apply_project(arguments &p_arguments) -> void {
       cmake && (p_arguments.command == "run" || p_arguments.command == "build") &&
       p_arguments.object.empty();
   if (p_arguments.command == "cmake" || p_arguments.command == "update" ||
-      p_arguments.command == "tree" || is_dependency_command(p_arguments.command))
+      p_arguments.command == "tree" || is_dependency_command(p_arguments.command) ||
+      package_only(p_arguments, project))
     return;
   // check and fix read the program without CMake: the include folders and
   // definitions its targets give come from the flags file the last build's
@@ -1942,6 +1947,55 @@ auto vendor_packages(const arguments &p_arguments) -> int {
   return 0;
 }
 
+// The package in `p_arguments.project`, read as its users' programs would
+// read it, with its dependencies, no model and nothing written; its problems
+// and those of its `# example:` lines are printed (packages.md §6, L9).
+struct package_reading {
+  std::vector<ovis::phrase::phrase_file> files;
+  std::size_t first_own = 0;
+  ovis::phrase::program_result result;
+  // It reads, and its examples do.
+  bool ok = false;
+};
+
+auto read_package(const arguments &p_arguments, const std::string &p_line) -> package_reading {
+  const auto &project = *p_arguments.project;
+  package_reading reading;
+  for (const auto &package : p_arguments.packages.packages) {
+    auto loaded = ovis::phrase::load_package_files(package.root, package.id);
+    for (auto &file : loaded) {
+      file.aliases = package.dependencies;
+    }
+    std::ranges::move(loaded, std::back_inserter(reading.files));
+  }
+  const auto id = project.package->name + "@" + p_line;
+  auto own = ovis::phrase::load_package_files(project.root, id);
+  if (own.empty())
+    throw ovis::error(project.root.string() + " has no .ovis files.");
+  for (auto &file : own) {
+    file.aliases = p_arguments.packages.roots;
+  }
+  reading.first_own = reading.files.size();
+  std::ranges::move(own, std::back_inserter(reading.files));
+  const ovis::phrase::front_end_options options{
+      .c_imports = p_arguments.c_imports,
+      .phrase_directories = p_arguments.phrase_directories,
+      .sources_written = false,
+      .strict_memory = p_arguments.strict_memory};
+  reading.result = ovis::phrase::compile_phrase_program(reading.files, nullptr, options);
+  for (const auto &problem : reading.result.problems)
+    std::cerr << problem << '\n';
+  reading.ok = reading.result.succeeded();
+  // Only a package that reads has examples worth running.
+  if (reading.ok)
+    for (const auto &problem :
+         ovis::phrase::check_package_examples(reading.files, reading.first_own, options)) {
+      std::cerr << problem << '\n';
+      reading.ok = false;
+    }
+  return reading;
+}
+
 // `ovis release X.Y.Z` in a package: checks it can be released, then tags
 // it vX.Y.Z (the author pushes the tag): the version is ovis.toml's, the
 // work is committed, the tag is new, and every file reads and checks with
@@ -1979,38 +2033,13 @@ auto release_package(const arguments &p_arguments) -> int {
   if (git({"rev-parse", "-q", "--verify", "refs/tags/" + tag}).status == 0)
     throw ovis::error("The tag " + tag + " already exists: a version is released once.");
 
-  // Its files read as a dependency's would, with its dependencies.
-  std::vector<ovis::phrase::phrase_file> files;
-  for (const auto &package : p_arguments.packages.packages) {
-    auto loaded = ovis::phrase::load_package_files(package.root, package.id);
-    for (auto &file : loaded) {
-      file.aliases = package.dependencies;
-    }
-    std::ranges::move(loaded, std::back_inserter(files));
-  }
-  const auto id = project.package->name + "@" + wanted->line();
-  auto own = ovis::phrase::load_package_files(project.root, id);
-  if (own.empty())
-    throw ovis::error(root + " has no .ovis files to release.");
-  for (auto &file : own) {
-    file.aliases = p_arguments.packages.roots;
-  }
-  const auto first_own = files.size();
-  std::ranges::move(own, std::back_inserter(files));
-  const auto result = ovis::phrase::compile_phrase_program(
-      files, nullptr,
-      {.c_imports = p_arguments.c_imports,
-       .phrase_directories = p_arguments.phrase_directories,
-       .sources_written = false,
-       .strict_memory = p_arguments.strict_memory});
-  for (const auto &problem : result.problems)
-    std::cerr << problem << '\n';
-  if (!result.succeeded())
+  const auto read = read_package(p_arguments, wanted->line());
+  if (!read.ok)
     throw ovis::error("The package doesn't build as its users would build it; fix the "
                       "problems above (`ovis fix` settles unclear lines).");
-  for (auto index = first_own; index < files.size(); ++index)
-    if (result.locks[index] != files[index].lock)
-      throw ovis::error(files[index].name + ": its lockfile would change; build it and "
+  for (auto index = read.first_own; index < read.files.size(); ++index)
+    if (read.result.locks[index] != read.files[index].lock)
+      throw ovis::error(read.files[index].name + ": its lockfile would change; build it and "
                         "commit the lockfile first.");
   const auto tagged = git({"tag", "-a", tag, "-m", project.package->name + " " + wanted->text()});
   if (tagged.status != 0)
@@ -2018,6 +2047,18 @@ auto release_package(const arguments &p_arguments) -> int {
   std::cerr << "ovis: tagged " << tag << "; publish it with `git push origin " << tag
             << "`\n";
   return 0;
+}
+
+auto is_package_only(const arguments &p_arguments) -> bool {
+  return p_arguments.command == "check" && p_arguments.project && p_arguments.project->package &&
+         !std::filesystem::exists(p_arguments.project->root / "main.ovis");
+}
+
+// `ovis check` in a package, which has no main.ovis: the release's reading,
+// with no tag.
+auto check_package(const arguments &p_arguments) -> int {
+  const auto read = read_package(p_arguments, p_arguments.project->package->package_version.line());
+  return read.ok ? 0 : 1;
 }
 
 // `ovis update [NAME…]`: what apply_project's lock_project moved. A name
@@ -2329,6 +2370,8 @@ auto run(const arguments &p_arguments, const char *p_argument_zero) -> int {
     return vendor_packages(p_arguments);
   if (command == "release")
     return release_package(p_arguments);
+  if (command == "check" && is_package_only(p_arguments))
+    return check_package(p_arguments);
   if (command == "tree") {
     if (p_arguments.packages.packages.empty())
       std::cerr << "ovis: the project uses no packages\n";

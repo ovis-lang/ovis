@@ -89,9 +89,10 @@ never writing). The owner dropped all editor work and the VS Code
 extension on 2026-10-24: the smart manual is the help.
 
 - [ ] L7 rest (records, traits, top-level values and C functions as entries,
-  `# example:` lines, the package's version), L9–L10,
-  L5–L6, then R1, version 0.1.0, in the proposal's order. L1–L4 and L8
-  (the names in scope at a line, `--for`) are done
+  the package's version), L10,
+  L5–L6, then R1, version 0.1.0, in the proposal's order. L1–L4, L8
+  (the names in scope at a line, `--for`) and L9 (a package's `# example:`
+  lines, checked by `check` and `release`) are done
   and L7's `to …:` phrases (with `#` comments, uses, package)
   (`ovis manual` is lexical plus embeddings over the library and a
   `phrases/` folder).

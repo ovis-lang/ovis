@@ -212,3 +212,19 @@ TEST_CASE("The names in scope before a line, and the phrases that take one.",
   CHECK(has(phrases_for("text"), "TEXT in capitals"));
   CHECK(phrases_for("zzyzx").phrases_for_type.empty());
 }
+
+TEST_CASE("A phrase's # example: lines are its examples, not its sentence.", "[phrase][manual]") {
+  ovis::phrase::phrase_file file{
+      .path = "tax.ovis",
+      .text = "# Adds the tax.\n"
+              "# example: add tax to 50\n"
+              "to add tax to (total):\n"
+              "    give back total\n"
+              "show add tax to 5\n"
+              "show add tax to 6\n"};
+  const auto entries = ovis::phrase::program_phrase_templates({file});
+  REQUIRE(entries.size() == 1);
+  CHECK(entries.front().about == "Adds the tax.");
+  REQUIRE(entries.front().examples.size() == 2);
+  CHECK(entries.front().examples.front() == "add tax to 50");
+}

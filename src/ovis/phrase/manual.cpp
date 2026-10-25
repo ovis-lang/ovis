@@ -7,6 +7,7 @@
 #include <optional>
 #include <sstream>
 
+#include <ovis/core/modules.hpp>
 #include <ovis/phrase/front_end.hpp>
 
 #include "questions.hpp"
@@ -337,6 +338,17 @@ auto reads_to(const header_shape &p_shape, const std::vector<string_type> &p_wor
   return true;
 }
 
+// `example: LINE` after a comment's `#`: the line.
+auto example_of(const string_type &p_comment) -> std::optional<string_type> {
+  constexpr std::string_view key = "example:";
+  if (!p_comment.starts_with(key))
+    return std::nullopt;
+  auto text = trimmed(p_comment.substr(key.size()));
+  if (text.empty())
+    return std::nullopt;
+  return text;
+}
+
 } // namespace
 
 auto program_phrase_templates(const std::vector<phrase_file> &p_files,
@@ -383,8 +395,14 @@ auto program_phrase_templates(const std::vector<phrase_file> &p_files,
           if (read.size() != 1)
             continue;
           auto &item = read.front();
-          for (const auto &comment : above)
-            item.about += (item.about.empty() ? "" : " ") + comment;
+          for (const auto &comment : above) {
+            // `# example: LINE` is an example the author wrote (L9), not
+            // part of the sentence.
+            if (const auto example = example_of(comment))
+              item.examples.push_back(*example);
+            else
+              item.about += (item.about.empty() ? "" : " ") + comment;
+          }
           item.file = shown;
           item.line = number;
           item.package = file.package;
@@ -404,8 +422,10 @@ auto program_phrase_templates(const std::vector<phrase_file> &p_files,
   std::vector<phrase_template> result;
   for (auto &entry : found) {
     auto &item = entry.item;
+    // The author's own examples come first; the uses fill up to two.
+    const auto written_examples = item.examples.size();
     for (const auto &use : uses) {
-      if (item.examples.size() == 2)
+      if (item.examples.size() >= std::max<std::size_t>(2, written_examples))
         break;
       if (!reads_to(entry.shape, words_of(use.text)))
         continue;
@@ -425,6 +445,72 @@ auto program_phrase_templates(const std::vector<phrase_file> &p_files,
     result.push_back(std::move(item));
   }
   return result;
+}
+
+
+auto check_package_examples(const std::vector<phrase_file> &p_files, std::size_t p_first,
+                            const front_end_options &p_options) -> std::vector<string_type> {
+  std::vector<string_type> problems;
+  for (auto index = p_first; index < p_files.size(); ++index) {
+    const auto &file = p_files[index];
+    struct example {
+      std::size_t line;
+      string_type text;
+      std::optional<header_shape> shape;
+    };
+    std::vector<example> found;
+    std::vector<std::pair<std::size_t, string_type>> comments;
+    std::istringstream input(file.text);
+    string_type line;
+    for (std::size_t number = 1; std::getline(input, line); ++number) {
+      if (!line.empty() && line.back() == '\r')
+        line.pop_back();
+      const auto text = trimmed(line);
+      const bool top = !line.empty() && line.front() != ' ' && line.front() != '\t';
+      if (!top)
+        continue;
+      if (text.front() == '#') {
+        comments.emplace_back(number, trimmed(text.substr(1)));
+        continue;
+      }
+      const auto shape = header_of(text);
+      for (const auto &[at, comment] : std::exchange(comments, {}))
+        if (const auto written = example_of(comment))
+          found.push_back({at, *written, shape});
+    }
+    if (found.empty())
+      continue;
+    // The examples alone, each on the line it has in the file, so a problem
+    // cites the line the author wrote; the file stays to define the phrases.
+    const auto shown = file.name.empty() ? file.path.filename().string() : file.name;
+    string_type probe_text;
+    std::size_t written = 1;
+    for (const auto &item : found) {
+      for (; written < item.line; ++written)
+        probe_text += '\n';
+      probe_text += item.text + '\n';
+      ++written;
+    }
+    auto probe = file;
+    probe.path.clear();
+    probe.name = shown + " (examples)";
+    probe.module = string_type(core::main_module);
+    probe.text = probe_text;
+    probe.lock = {};
+    auto files = p_files;
+    files.push_back(std::move(probe));
+    auto options = p_options;
+    options.sources_written = false;
+    const auto result = compile_phrase_program(files, nullptr, options);
+    for (const auto &problem : result.problems)
+      if (problem.starts_with(shown + " (examples)"))
+        problems.push_back(problem);
+    for (const auto &item : found)
+      if (item.shape && !reads_to(*item.shape, words_of(item.text)))
+        problems.push_back(shown + ", line " + std::to_string(item.line) + ": the example `" +
+                           item.text + "` doesn't use the words of the phrase below it.");
+  }
+  return problems;
 }
 
 } // namespace ovis::phrase

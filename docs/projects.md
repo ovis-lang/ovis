@@ -154,6 +154,11 @@ A project with a `[package]` table is a package: a git repository whose
   add c NAME …`, `ovis remove [c] NAME`, `ovis update [NAME]`, `ovis tree`,
   `ovis fetch`, `ovis vendor`, `ovis release X.Y.Z` (version, committed, a
   new tag, no path dependencies, reads and checks as its users would).
+  A `# example: LINE` comment above a definition is an example the
+  manual shows; `ovis release`, and `ovis check` in a package (no
+  `main.ovis`), read each with no model in its file's package and fail a
+  line that doesn't read, or (above a `to …:` header) doesn't use the
+  header's words.
 
 ovis.lock's `packages` hold `name`, `git` or `path`, `line`, `version`,
 `commit`, `tree` and `dependencies` (`name@line`). Measured (4 CPUs,
