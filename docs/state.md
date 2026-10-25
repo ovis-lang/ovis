@@ -2,8 +2,8 @@
 
 Last updated: 2026-10-25 (L5, the model's sure pick first in `ovis manual`; L4 with EmbeddingGemma; L6, `ovis manual --html`; R1, version 0.1.0; L10, C's entries in the manual; L9, a package's `# example:` lines; phrase scope S3, dependencies' phrases need a shared word; S2, `use NAME`; phrases in sight measured; packages H1–H9, projects J1–J8; deployment:
 release packages and ovisup)
-(branch `claude/llm-matching-failure-hypothesis-xwp3nu`).
-Last dreamed: 2026-10-25 at e79728f (history to the manual's plan, scope S1–S5, archived).
+(branch `claude/eloquent-curie-bbpub4`).
+Last dreamed: 2026-10-25 at 45455c9 (the manual's L7 rest, L9, L10 and R1 history, edit candidates and rewrites measured archived).
 [dream/state](dream/state/INDEX.md).
 
 Ovis is a compiler whose source code is plain English: lines of phrases,
@@ -213,35 +213,13 @@ Done (S1–S5): the measurements are in
 
 ## Edit candidates measured
 
-`eval/wording-questions.txt`: 28 near misses (a word left out, an extra
-joining word, a word spelt like the phrase's, built-in forms, fields).
-3B, one order, before → after edit candidates: right 14 → 22 of 28 (every
-confident pick right); `questions.txt` 24 → 24 of 26; `hard-questions.txt`
-12 → 12 of 20. Ranking (`--no-model`): near misses first 13 → 21, shown
-15 → 23. Tried and dropped: replacing a word by any phrase word (`median`
-became `average` confidently), a single question of 9 (cut right readings
-the run-off kept), dropping words with meaning (`w's age in months` read
-as `w's age` at 86%). Two edits (a verb put first, the joining words
-before the value made `to`/`by`): wording ranking first 21 → 23, shown
-23 → 25 of 28 (`w's age is now 13`, `goes to 14`); the other sets
-unchanged; CI floor raised. Left to rewrites: word order, `sort out`,
-`the order of`.
+Near misses 14 → 22 of 28 right with 3B; the runs and what was dropped are in
+[dream/state](dream/state/INDEX.md). CI keeps the wording floor.
 
 ## Rewrites measured
 
-`ovis run` through the daemon, 4 CPUs, 3B (7B in brackets). A rewrite
-takes 2.2–3.1 s (5.3–7 s); the first read of its system message (~1500
-tokens, the phrase list) takes ~20 s (47 s) once, then its state is
-loaded from the prompt cache (32 MB). Lines no reading fitted (the
-records probes): 3B rewrote right `winnie's age becomes 13`, `make
-winnie's age 14`, `double winnie's age`, `the_car's owner turns 13` (set
-its owner's age), `give the car 2 more wheels`; refused, so reported,
-`remove winnie from people`, `in months`, `is a teenager`, `names of
-people`, `the oldest person`. 7B also got `is a teenager` (age between 13
-and 19), `the oldest person` and `the number of wheels the_car has`; its
-one wrong rewrite (`turns 13` as `increase … by 1`) was refused. No wrong
-rewrite was kept by either. Asked again with the refusal's reason, 3B
-wrote the same in 4 of 5, so there is one try.
+A rewrite takes 2.2–3.1 s with 3B through the daemon (7B 5.3–7 s); no wrong
+rewrite was kept by either. The probes, line by line: [dream/state](dream/state/INDEX.md).
 
 ## Phrase front end: programs measured
 
@@ -441,8 +419,4 @@ asks the model when there is one and moves only a sure pick.
 | (P2) | **The manual's held-out queries and model decided**: `eval/manual-held-out.txt` (30 queries written after the weight was chosen): words 1 of 30 first, EmbeddingGemma 12 joined, 15 alone, Qwen3-Embedding 15 and 19; the weight stays ½ (partly fitted, above); EmbeddingGemma ships (decisions); no code changed |
 | (P2) | **L4 with a model made for search** (what blocked L5): `builtin_model::embed` pools as the GGUF says (`ARCH.pooling_type`) with its special tokens, so BERT-like and Gemma/Qwen3 embedding models work (a chat model still by its last token); `ovis model pull embedding` (EmbeddingGemma-300M, `default_embedding_model`), which `ovis manual` uses when found (`find_embedding_model`, `--embedding-model`, `--embeddings` fails without it), never the chat model; query and entry prefixes (`manual_embeddings`); the words count half (`lexical_weight`). Fixed: `manual-embeddings.bin` written with one vector size for vectors of two models, after which every read failed and the search fell back to the words. `ovis_eval manual` reports embeddings alone too, `--lexical-weight`, `--query-prefix`, `--entry-prefix`, `--no-prefixes`. Measured (above): first 25 of 34 against 13. `manual_test`; test cases 255 (252 pass, 3 skipped), 3539 assertions |
 | (P2) | **L6, `ovis manual --html DIR`**: `write_manual_html` writes `index.html` (every entry under its topic) and one page per topic (per package and topic), an anchor per entry with its sentence, other ways of saying it and examples; with words, only the entries found. The links are checked in the files written (a page and an id must be there), problems go to stderr and exit 1; `manual_test`. Test cases 254 (251 pass, 3 skipped) |
-| (P2) | **R1, version 0.1.0**: `CMakeLists.txt` and `tools/ovisup` say 0.1.0 (they said 0.0.1, the version of the first tag), and a test (`ovisup_test`) fails if the two differ; deployment.md already named 0.1.0. Done at the owner's word before L5, L6 and L7's rest; the tag `v0.1.0` (the first `stable`) is not made yet. Test cases 253 (250 pass, 3 skipped) |
-| (P2) | **L10, C's entries in `ovis manual`**: `c_header_templates` reads the headers a file's `use "x.h"` lines name (all the program's files when `--in` is not a file) with `import_c_library` and makes an entry for each function and function-like macro (generic ones too), constant and struct: found by its name split into words (`deflateInit` as `deflate init`) and its parameters' names (`c_function::parameter_names`, new), shown as its signature in Ovis's types (`phrase_template::title`: `ovt_add(a: a whole number, b: a whole number) gives a whole number`), the header's first comment sentence, `From x.h.`, and up to two lines of the program that use the name; the ones the program calls come first. Entries are embedded with `--embeddings` by their text, so a header is embedded once. Test cases 252 (249 pass, 3 skipped), 3505 assertions (the test library; zlib and SQLite skip without headers) |
-| (P2) | **L9, a package's `# example:` lines**: a comment `# example: LINE` above a definition is an example, shown first by `ovis manual` (`program_phrase_templates`, not part of `about`); `check_package_examples` compiles them with no model as a `main` probe whose lines keep their line numbers in the package file, so a problem cites `FILE (examples), line N`, and above a `to …:` header the example must use the header's words; `ovis release` runs it after the package reads (`read_package`), and `ovis check` in a package with no `main.ovis` does the same without tagging. Test cases 250 (247 pass, 3 skipped), 3488 assertions |
-| (P2) | **L7 rest**: `ovis manual` has records (fields, traits), traits (needs, defaults, implementers) and a package's top-level constants as entries, and a package's entries end with its full version (`phrase_file::package_version`); one scan with the `to …:` headers (`program_phrase_templates`). Test cases 255 (252 pass, 3 skipped) |
-| … | Earlier history: [dream/state](dream/state/INDEX.md) (to deployment, projects J1–J8, packages H1–H9 and the manual's L1–L4, L7, L8; phrase scope S1–S5 and the manual planned) |
+| … | Earlier history: [dream/state](dream/state/INDEX.md) (to deployment, projects J1–J8, packages H1–H9 and the manual's L1–L4, L7–L10, R1; phrase scope S1–S5 and the manual planned) |

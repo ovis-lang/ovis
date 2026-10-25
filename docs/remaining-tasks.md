@@ -26,13 +26,13 @@ a record lacks `comes before` / `is the same as`, `position of` and `count
 of` for any equatable type, lists of records with `text of`, and `a book is
 comparable:` (also `equatable`, `showable`). See state.md history,
 architecture-spec §4–§5 and
-[dream/remaining-tasks](dream/remaining-tasks/INDEX.md). New, small:
+[dream/remaining-tasks](dream/remaining-tasks/INDEX.md). Nothing is left open.
 
 ### M4: user traits and impls
 
 Done (types.md §2): M4.1–M4.4, and one-line phrase bodies (M5). See state.md history, architecture-spec §5–§6
-and [dream/remaining-tasks](dream/remaining-tasks/INDEX.md). Left from it
-(designs decided 2026-10-19, state.md decisions):
+and [dream/remaining-tasks](dream/remaining-tasks/INDEX.md). Nothing is left open
+(designs decided 2026-10-19, state.md decisions).
 
 ### Defer: `at the end`
 
@@ -88,18 +88,8 @@ manual` (lexical, embeddings, then the model choosing among real entries,
 never writing). The owner dropped all editor work and the VS Code
 extension on 2026-10-24: the smart manual is the help.
 
-- [x] L5 (state.md, "manual measured"): the chat model chooses among the
-  first 5 found, and its pick moves first only when it is sure: first 28 of
-  34 against 25, held out 16 of 30 against 12, ~2.9 s a query on the CPU.
-  L1–L10 and R1 are all done, so the manual's plan is finished.
-- [x] L4 with a real embedding model (state.md, "manual measured"):
-  EmbeddingGemma-300M beats the words (first 25 of 34 against 13, in the
-  first 5 33 against 21), so `ovis manual` uses it when it is pulled. L5 is
-  unblocked: the model's `choose` now has to beat 25 of 34 first, among
-  the first 5 it puts up (33 of 34 have the entry), for ~2 s a query on
-  the CPU.
-- [x] Held-out queries (`eval/manual-held-out.txt`, 30) and the shipped
-  model decided (EmbeddingGemma): state.md, "manual measured".
+- Done: L1–L10 and R1, finished tasks in
+  [dream/remaining-tasks](dream/remaining-tasks/INDEX.md).
 - [ ] Queries for the program's, packages' and C's entries (§2.6), and a
   floor with the embedding model if CI gets it (334 MB, cacheable).
 - [ ] Bundle the embedding model in the release packages, or keep `ovis
@@ -151,9 +141,6 @@ Done: ovisup, relocatable packages, the release workflow
 
 - [ ] Merge to main so the workflow's first run publishes `nightly`; fix
   what the macOS and arm64 Linux packaging find there.
-- [x] Version 0.1.0 (R1 in
-  [proposals/manual-and-editor.md](proposals/manual-and-editor.md)):
-  CMakeLists.txt and ovisup say 0.1.0, kept one by a test.
 - [ ] The tag `v0.1.0`, the first `stable`: nightly should install
   everywhere first (the manual's L5 and L7 rest are done).
 - [ ] macOS x86-64 packages, if anyone needs them (a `macos-15-intel`
