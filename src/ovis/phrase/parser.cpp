@@ -1724,17 +1724,91 @@ struct line_parser::state {
                 next(end);
             }
         } else {
-          for (const auto &value : expressions(p_position, end)) {
+          const auto &found = expressions(p_position, end);
+          for (const auto &value : found) {
             values = {value};
             if (holes_so_far() <= 1)
               next(end);
           }
+          // `the items of xs where _ is not empty`: words with `_` that
+          // name no phrase of the program, read as a phrase of xs's items.
+          if (slot.type.kind == type_name::kind_type::builtin &&
+              slot.type.name == "ptr" &&
+              std::ranges::none_of(found, [](const parse &p_value) {
+                return p_value.holes == 0;
+              }))
+            if (const auto item = listed_item(p_fills))
+              for (const auto &value : lambdas(p_position, end, *item)) {
+                values = {value};
+                next(end);
+              }
         }
         values.clear();
       }
       break;
     }
     }
+  }
+
+  // The items' type of the list a phrase given a phrase is about: the
+  // first slot filled before it with a list.
+  static auto listed_item(const slot_fills &p_fills) -> std::optional<value_kind> {
+    for (const auto &values : p_fills.values)
+      if (values.size() == 1 && values.front().type.known() &&
+          values.front().type.depth > 0) {
+        const auto &list = values.front().type;
+        auto item = list.element();
+        if (list.is_c_array())
+          item.exact = list.exact.substr(6, list.exact.size() - 7);
+        return item;
+      }
+    return std::nullopt;
+  }
+
+  // Words with `_` for a list's item, read as a phrase of their own: each
+  // `_` one of its parameters, and nothing else of the line in scope, since
+  // a phrase given as a value has no closure (`_ is above limit` isn't
+  // read). Made in Ovis Core as a `lambda`, which becomes a function.
+  std::map<std::tuple<std::size_t, std::size_t, string_type>, std::vector<parse>>
+      lambda_chart;
+  auto lambdas(std::size_t p_begin, std::size_t p_end, const value_kind &p_item)
+      -> const std::vector<parse> & {
+    const auto type = p_item.exact.empty() ? p_item.core() : p_item.exact;
+    const auto key = std::tuple(p_begin, p_end, type);
+    if (const auto found = lambda_chart.find(key); found != lambda_chart.end())
+      return found->second;
+    auto &results = lambda_chart[key];
+    std::vector<token> written(tokens.begin() + static_cast<std::ptrdiff_t>(p_begin),
+                               tokens.begin() + static_cast<std::ptrdiff_t>(p_end));
+    std::map<string_type, value_kind> parameters;
+    string_type declared;
+    for (auto &word : written)
+      if (word.kind == token::kind_type::word && word.text == "_") {
+        word.text = "_" + std::to_string(parameters.size() + 1);
+        parameters.emplace(word.text, p_item);
+        declared += (declared.empty() ? "(" : " (") + word.text + " " + type + ")";
+      }
+    // `_` alone is no phrase: `(the items of xs where _) is empty`.
+    if (parameters.empty() || parameters.size() == written.size())
+      return results;
+    string_type reading;
+    for (auto index = p_begin; index < p_end; ++index)
+      reading += (index > p_begin ? " " : "") + tokens[index].text;
+    line_parser inner(written, parameters, words, false);
+    const auto bodies = inner.expressions(0, written.size());
+    for (const auto &body : bodies) {
+      if (body.holes != 0 || !body.type.known())
+        continue;
+      parse result{.core = "(lambda (" + declared + ") " +
+                           (body.type.exact.empty() ? body.type.core()
+                                                    : body.type.exact) +
+                           " " + body.core + ")",
+                   .reading = reading,
+                   .type = value_kind{"ptr"}};
+      result.use_all(body);
+      results.push_back(std::move(result));
+    }
+    return results;
   }
 
   auto add_phrases(phrase_template::kind_type p_kind, bool p_block,

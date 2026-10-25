@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <iterator>
 #include <map>
 
 #include <ovis/core/ast.hpp>
@@ -1609,9 +1610,43 @@ auto core_keywords() -> std::vector<string_view_type> {
   return result;
 }
 
-auto parse_unit(const std::vector<sexpr> &p_forms) -> unit {
+// Takes each `(lambda …)` out of a form, innermost first, into a `(fn …)`
+// of its own: a phrase given as a value sees only its parameters, so it
+// needs nothing from where it is written.
+static auto hoist_lambdas(sexpr &p_form, string_view_type p_prefix,
+                   std::vector<sexpr> &p_hoisted) -> void {
+  if (!p_form.is_list())
+    return;
+  for (auto &item : p_form.items)
+    hoist_lambdas(item, p_prefix, p_hoisted);
+  if (p_form.head() != "lambda")
+    return;
+  if (p_form.items.size() < 3 || !p_form.items[1].is_list())
+    throw fail(p_form, "Expected (lambda ((PARAMETER TYPE) ...) "
+                       "RESULT-TYPE BODY...).");
+  const auto name = string_type(p_prefix) + std::to_string(p_hoisted.size());
+  auto function = p_form;
+  function.items[0].text = "fn";
+  function.items.insert(function.items.begin() + 1,
+                        sexpr{.kind = sexpr::kind_type::symbol,
+                              .text = name,
+                              .location = p_form.location});
+  p_hoisted.push_back(std::move(function));
+  const auto location = p_form.location;
+  p_form.items = {
+      sexpr{.kind = sexpr::kind_type::symbol, .text = "phrase-of", .location = location},
+      sexpr{.kind = sexpr::kind_type::symbol, .text = name, .location = location}};
+}
+
+auto parse_unit(const std::vector<sexpr> &p_forms,
+                string_view_type p_lambda_prefix) -> unit {
+  auto forms = p_forms;
+  std::vector<sexpr> hoisted;
+  for (auto &form : forms)
+    hoist_lambdas(form, p_lambda_prefix, hoisted);
+  std::ranges::move(hoisted, std::back_inserter(forms));
   unit result;
-  for (const auto &form : p_forms) {
+  for (const auto &form : forms) {
     const auto head = form.head();
     if (head == "fn" || head == "function" || head == "defn") {
       // No body: the model copied the declaration of a function another
@@ -1654,9 +1689,10 @@ auto parse_unit(const std::vector<sexpr> &p_forms) -> unit {
   return result;
 }
 
-auto parse_unit(string_view_type p_text) -> unit {
+auto parse_unit(string_view_type p_text, string_view_type p_lambda_prefix)
+    -> unit {
   try {
-    return parse_unit(read_sexprs(p_text));
+    return parse_unit(read_sexprs(p_text), p_lambda_prefix);
   } catch (const syntax_error &p_error) {
     throw error("line " + std::to_string(p_error.location.line) + ": " +
                 p_error.what());

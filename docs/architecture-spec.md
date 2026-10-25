@@ -152,7 +152,7 @@ a slot.
   value (§7b; map's result is `any[]` to the parser), and call a prelude
   generic taking `(phrase ((var item)) (var result))`: the elaborator binds
   its variables through the phrase (`bind_phrase`), `match_type` through
-  its signature. No closures: the phrase sees only its parameters. `test/phrase_library.txt` has a program and its output for
+  its signature. Words with `_` that name no phrase of the program, in a `{f: ptr}` slot after a list's, are a phrase written in place: read with only the `_`s in scope, each a parameter of the list's item type, into Core `(lambda ((_1 T)…) RESULT BODY)`, which `parse_unit` hoists into a function of the unit (`ovis_lambda_FILE_LINE_N`) given as `(phrase-of NAME)`. No closures: the phrase sees only its parameters. `test/phrase_library.txt` has a program and its output for
   every template; `templates_used` in the result shows which were used.
 
 ## 5. Reading a program

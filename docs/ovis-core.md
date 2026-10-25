@@ -215,7 +215,7 @@ deferred block can't leave a block around it. The Core reader still accepts the 
   int float void`…); a pointer to a function, which goes where `ptr` does
   but only into a phrase type of its own convention and signature.
   `(phrase-of NAME)` is a phrase the program defines as a value (not a
-  trait's). `(call F ARG…)` calls one (a C phrase's numbers converted as
+  trait's). `(lambda ((x T)…) RESULT BODY…)` is a phrase written in place: the unit gets it as a function of its own, named from the unit's prefix, and it is `(phrase-of NAME)` there; it sees only its parameters. `(call F ARG…)` calls one (a C phrase's numbers converted as
   for C functions; null is a checked error). Where a C function takes a
   function pointer, `(phrase-of NAME)` is given through a C function Ovis
   writes for it (`ovis.c.NAME`), its types checked against the header's

@@ -377,6 +377,10 @@ TEST_CASE("Report what phrases can't read.", "[phrase][front-end]") {
                ContainsSubstring("line 3: \"nmbr\" is unclear"));
   REQUIRE_THAT(failure("words = [\"a\"]\nshow 1 + nmbr\n"),
                ContainsSubstring("line 2: Nothing called 'nmbr' is known here."));
+  // A phrase written with `_` sees only its `_`s.
+  REQUIRE_THAT(failure("xs = [1, 2]\nlimit = 1\nys = the items of xs where _ is "
+                       "above limit\nshow ys\n"),
+               ContainsSubstring("uses 'limit' in a phrase written with _"));
   REQUIRE_THAT(failure("if 1 > 0\n"), ContainsSubstring("End the line with ':'"));
   REQUIRE_THAT(failure("x = [1, 2]\nx = 3 +\n"),
                ContainsSubstring("line 2:"));
