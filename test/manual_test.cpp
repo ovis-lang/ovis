@@ -144,8 +144,9 @@ TEST_CASE("A model finds a phrase by its meaning where the words miss it.",
 
   // A word of the phrase still counts: the words and the meaning are joined.
   // This model ties every entry but the capitals', and the words count half,
-  // so the word lifts its phrase into the first 10, not the first 3.
-  const auto both = ovis::phrase::manual_search({"reversed"}, {}, 10, {.model = &model});
+  // so the word lifts its phrase past all but the first 8 or so in library
+  // order (the tie), into the first 15 but not the first 3.
+  const auto both = ovis::phrase::manual_search({"reversed"}, {}, 15, {.model = &model});
   CHECK(std::ranges::any_of(both, [](const auto &p_entry) {
     return p_entry.pattern == "TEXT reversed";
   }));

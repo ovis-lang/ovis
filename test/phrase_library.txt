@@ -652,7 +652,7 @@ show evens, odds, doubled
 show the first item of numbers where _ is even, the last item of numbers where _ is even
 show the position of the first item of numbers where _ is even
 show the number of items of numbers where _ is even
-show numbers has an item where _ is even, numbers has only items where _ is even, numbers has no item where _ is even
+show numbers has an item where _ is even, all items of numbers are ones where _ is even, numbers has no item where _ is even
 total = numbers combined with add _ and _ starting from 0
 show total, numbers combined with add _ and _
 ordered = numbers sorted using _ is above _
@@ -660,10 +660,11 @@ show ordered
 call show twice _ with each item of evens
 sort numbers using _ is above _
 show numbers
-keep only the items of numbers where _ is even
+keep the items of numbers where _ is even
 show numbers
 remove the items of numbers where _ is big
 show numbers
+show 3 isn't even, 3 is not even, 3 is not 5
 -- output
 [8, 2, 4] [3, 5, 7] [6, 16, 10, 4, 14, 8]
 8 4
@@ -678,6 +679,7 @@ true false false
 [8, 7, 5, 4, 3, 2]
 [8, 4, 2]
 [2]
+true true true
 
 == phrases given phrases on records and text
 a book has:

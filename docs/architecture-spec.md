@@ -136,7 +136,7 @@ a slot.
   prelude_total_by (forall r (field f)) …)`, which `copy_field_generics`
   copies per record and field (`prelude_total_by__book__pages`) before
   elaboration.
-- The library (190 templates): `core.phr` (output, input, prompts,
+- The library (188 templates): `core.phr` (output, input, prompts,
   conversions, buffers), `pointers.phr` (below), `maps.phr` (`map of
   text to whole numbers`, `set m at k to v`, `m at k`, `m has k`, `remove
   the entry for k from m`, `the keys of m`, `for each k in m`), `lists.phr`, `numbers.phr` (also bits, bytes,
@@ -166,7 +166,8 @@ STATEMENT` / `at the end:` (or `defer`), `do:` / `NAME = do:` and `leave
 [with VALUE]` (Core `(block :block_N …)` and `(leave :block_N …)`; names
 first set inside stay in it, as in `at the end:`), else a statement phrase); its span is read by a chart parser (fixed
 operator precedence, phrases, optional articles, plurals of words of 3+
-letters) filtered by
+letters; `is not`/`isn't` for the `is` of a truth value's phrase, read
+as its `not`, unless a phrase reads the words as written) filtered by
 types. A reading brackets a phrase with a slot at its edge that fills a
 slot at an expression's edge (`(add tax to x) with 2 decimals`), so
 different groupings never read the same. One reading: lowered. Several, or none: a question (below), whose

@@ -115,20 +115,18 @@ TEST_CASE("Check, and take a fix, from the command line.", "[phrase][fix]") {
   CHECK(output_of(ovis + " run " + path.string() + " --offline --quiet") ==
         "1\n2.0\n");
 
-  // `fix` asks, and a meaning may be written by hand; an answer that isn't
-  // an option is asked again.
-  const auto asked = program_file("ask", "show zorp blat\n");
-  const auto answers = output_of("printf 'x\\n4\\nshow \"zorp\"\\n' | " + ovis +
-                                 " fix " + asked.string() + " --offline");
-  CHECK_THAT(answers, ContainsSubstring("What does \"zorp blat\" mean here?"));
-  CHECK_THAT(answers, ContainsSubstring("every line reads"));
-  CHECK(read_file(asked) == "@[meaning: show \"zorp\"]\nshow zorp blat\n");
+  // `fix --line N --meaning TEXT` writes a meaning by hand.
+  const auto written = program_file("written", "show zorp blat\n");
+  output_of(ovis + " fix " + written.string() + " --line 1 --meaning 'show \"zorp\"'");
+  CHECK(read_file(written) == "@[meaning: show \"zorp\"]\nshow zorp blat\n");
 
-  // A build with no terminal never asks.
-  const auto piped = program_file("piped", "show zorp blat\n");
-  CHECK_THAT(output_of("echo 1 | " + ovis + " run " + piped.string() +
-                       " --offline"),
-             !ContainsSubstring("What does"));
+  // Nothing asks in the terminal: `fix` and `run` report the line.
+  const auto asked = program_file("ask", "show zorp blat\n");
+  const auto reported = output_of("echo 1 | " + ovis + " fix " +
+                                  asked.string() + " --offline");
+  CHECK_THAT(reported, !ContainsSubstring("What does"));
+  CHECK_THAT(reported, ContainsSubstring("zorp blat"));
+  CHECK(read_file(asked) == "show zorp blat\n");
 }
 
 TEST_CASE("Offer phrases with a line's words when nothing fits.", "[phrase][fix]") {

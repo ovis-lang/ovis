@@ -143,7 +143,7 @@ show "Found", length of primes, "primes"
   a loop or go to its next pass.
 - **Operators:** `+ - * / mod = != < > <= >= and or not` work as in
   Python.
-- **Phrases:** the library has 190 built-in phrases, such as `average of
+- **Phrases:** the library has 188 built-in phrases, such as `average of
   numbers`, `add x to list`, `text in capitals` and `x rounded to 2
   decimals`. Each is a template with typed slots. Articles are optional,
   and singular and plural match. `ovis phrases round decimals` lists the
@@ -183,7 +183,7 @@ to (a: whole number) is above (b: whole number):
 evens = the items of numbers where _ is even
 doubled = double _ applied to each item of numbers
 show the first item of numbers where _ is even
-show numbers has an item where _ is even, numbers has only items where _ is even
+show numbers has an item where _ is even, all items of numbers are ones where _ is even
 total = numbers combined with add _ and _ starting from 0
 ordered = numbers sorted using _ is above _
 remove the items of numbers where _ is even
