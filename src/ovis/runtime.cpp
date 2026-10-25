@@ -39,6 +39,10 @@ static void ovis_fail_with(const char *format, long long first, long long second
   ovis_fail(message);
 }
 
+/* The prelude's own errors (`the first item of xs where _ is even` when no
+   item is): Ovis Core calls it as a C function. */
+void ovis_runtime_error(const char *message) { ovis_fail(message); }
+
 /* Memory (proposals/memory.md). The program's memory is malloc; a new memory
    is an arena of chunks that is freed or cleared all at once. Memories form
    a stack: what is made now goes in the top one. A null ovis_memory is the

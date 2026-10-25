@@ -39,4 +39,8 @@ file neared its 500 lines. The design is in
   stored outside or read after the `with new memory:` that made it (or
   after `clear`/`free` of the named memory a `with M:` made it in; an
   item read from a list whose items were made there too), and a
-  phrase that gives back both new and existing values.
+  phrase that gives back both new and existing values. A block's `at the
+  end` lines are walked where they run, when the block is left (in a
+  loop's body, before the next pass), so `at the end, free xs` frees what
+  the pass made; in a function's body or at the top level they may not
+  have run yet.

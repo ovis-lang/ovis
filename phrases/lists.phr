@@ -24,6 +24,10 @@ expr  empty list of {t: type}                   : t[]    => (array $t 0)
 expr  {xs: T[]} is empty                        : bool   => (= (len $xs) 0)
       about: True when the list has no items.
       example: show xs is empty
+expr  {xs: T[]} is not empty                    : bool   => (!= (len $xs) 0)
+      about: True when the list has at least one item.
+      example: show xs is not empty
+      alias: {xs} isn't empty
 expr  the numbers from {a: int} to {b: int}     : int[]  => (prelude_range $a $b)
       about: The whole numbers from a up to b, as a list.
       example: show the numbers from 2 to 5
@@ -65,3 +69,100 @@ expr  count of {x: T} in {xs: T:equatable[]}      : int    => (prelude_count $xs
 expr  {xs: str[]} joined with {sep: str}        : str    => (prelude_join $xs $sep)
       about: The texts of the list as one text, with the separator between them.
       example: show words joined with "-"
+
+# Phrases given a phrase: a `to …:` phrase named with `_` for its slots
+# (`_ is even`, `double _`; pointers.phr), called on each item. Each calls
+# a generic prelude function, copied for the items and what it gives back.
+expr  the items of {xs: T[]} where {f: ptr}             : T[]   => (prelude_where $xs $f)
+      about: A new list of the items a phrase is true for, in their order (filter).
+      example: evens = the items of numbers where _ is even
+      alias: the items in {xs} where {f}
+      alias: the items of {xs} for which {f}
+      alias: {xs} filtered by {f}
+expr  the items of {xs: T[]} except where {f: ptr}      : T[]   => (prelude_where_not $xs $f)
+      about: A new list of the items a phrase is false for, in their order.
+      example: odds = the items of numbers except where _ is even
+      alias: the items in {xs} except where {f}
+      alias: {xs} without the items where {f}
+expr  {f: ptr} applied to each item of {xs: T[]}       : any[] => (prelude_applied $xs $f)
+      about: A new list of what a phrase gives back for each item, in order (map).
+      example: doubled = double _ applied to each item of numbers
+      alias: {f} applied to each item in {xs}
+      alias: {f} applied to each of {xs}
+      alias: {f} of each item of {xs}
+      alias: {f} of each item in {xs}
+      alias: {xs} mapped with {f}
+      alias: {xs} mapped by {f}
+expr  the first item of {xs: T[]} where {f: ptr}        : T     => (prelude_first_where $xs $f)
+      about: The first item a phrase is true for (find); an error when there is none.
+      example: show the first item of numbers where _ is even
+      alias: the first item in {xs} where {f}
+      alias: the first item of {xs} for which {f}
+expr  the last item of {xs: T[]} where {f: ptr}         : T     => (prelude_last_where $xs $f)
+      about: The last item a phrase is true for; an error when there is none.
+      example: show the last item of numbers where _ is even
+      alias: the last item in {xs} where {f}
+      alias: the last item of {xs} for which {f}
+expr  the position of the first item of {xs: T[]} where {f: ptr} : int => (prelude_position_where $xs $f)
+      about: Where the first item a phrase is true for is, counting from 1; 0 when there is none.
+      example: show the position of the first item of numbers where _ is even
+      alias: the position of the first item in {xs} where {f}
+expr  the number of items of {xs: T[]} where {f: ptr}  : int   => (prelude_count_where $xs $f)
+      about: How many items a phrase is true for.
+      example: show the number of items of numbers where _ is even
+      alias: the number of items in {xs} where {f}
+      alias: how many items of {xs} are ones where {f}
+      alias: how many items in {xs} are ones where {f}
+expr  {xs: T[]} has (an|any|some) item where {f: ptr}  : bool  => (prelude_any_where $xs $f)
+      about: True when a phrase is true for at least one item (any).
+      example: show numbers has an item where _ is even
+      alias: some item of {xs} is one where {f}
+expr  {xs: T[]} has only items where {f: ptr}          : bool  => (prelude_every_where $xs $f)
+      about: True when a phrase is true for every item, or the list is empty (all).
+      example: show numbers has only items where _ is even
+      alias: every item of {xs} is one where {f}
+      alias: all items of {xs} are ones where {f}
+expr  {xs: T[]} has no item where {f: ptr}             : bool  => (not (prelude_any_where $xs $f))
+      about: True when a phrase is true for no item.
+      example: show numbers has no item where _ is even
+      alias: no item of {xs} is one where {f}
+expr  {xs: T[]} combined with {f: ptr} starting from {start: any} : any => (prelude_combined $xs $f $start)
+      about: Starts from a value and combines it with each item in turn by a phrase of two, the total first (reduce, fold).
+      example: total = numbers combined with add _ and _ starting from 0
+      alias: {xs} combined with {f} starting with {start}
+      alias: {xs} combined by {f} starting from {start}
+      alias: {xs} folded with {f} starting from {start}
+      alias: {xs} reduced with {f} starting from {start}
+expr  {xs: T[]} combined with {f: ptr}                 : T     => (prelude_combined_items $xs $f)
+      about: The items combined in turn by a phrase of two, starting from the first; an error for an empty list.
+      example: show numbers combined with add _ and _
+      alias: {xs} combined by {f}
+      alias: {xs} folded with {f}
+      alias: {xs} reduced with {f}
+expr  {xs: T[]} sorted using {f: ptr}                  : T[]   => (prelude_sorted_using $xs $f)
+      about: A new list in the order a phrase of two says, true when the first comes before the second; ties keep their order.
+      example: ordered = numbers sorted using _ is above _
+      alias: {xs} sorted with {f}
+      alias: {xs} ordered using {f}
+      alias: {xs} ordered by {f}
+
+stmt  call {f: ptr} with each item of {xs: T[]}               => (prelude_call_each $xs $f)
+      about: Runs a phrase once for each item, in order.
+      example: call show twice _ with each item of numbers
+      alias: call {f} on each item of {xs}
+      alias: do {f} to each item of {xs}
+      alias: apply {f} to each item of {xs}
+stmt  keep only the items of {xs: T[]} where {f: ptr}         => (prelude_keep_where $xs $f true)
+      about: Takes out of the list the items a phrase is false for.
+      example: keep only the items of numbers where _ is even
+      alias: keep only the items in {xs} where {f}
+      alias: keep the items of {xs} where {f}
+stmt  remove the items of {xs: T[]} where {f: ptr}            => (prelude_keep_where $xs $f false)
+      about: Takes out of the list the items a phrase is true for.
+      example: remove the items of numbers where _ is even
+      alias: remove the items in {xs} where {f}
+      alias: remove every item of {xs} where {f}
+stmt  sort {xs: T[]} using {f: ptr}                           => (prelude_sort_using $xs $f)
+      about: Puts the list in the order a phrase of two says, true when the first comes before the second; ties keep their order.
+      example: sort numbers using _ is above _
+      alias: sort {xs} with {f}

@@ -45,6 +45,9 @@ auto make_table() -> std::vector<c_function> {
   add("system", int_type, {string_type});
   add("labs", long_type, {long_type});
 
+  // The runtime: an error the prelude gives (lists.phr), with its line.
+  add("ovis_runtime_error", void_type, {string_type});
+
   // string.h
   add("strlen", size_type, {string_type});
   add("strcmp", int_type, {string_type, string_type});

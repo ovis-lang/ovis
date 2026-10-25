@@ -305,3 +305,125 @@
   (let best (get xs 0))
   (each x xs (if (< (field x f) (field best f)) (then (set best x))))
   best)
+
+; Phrases given a phrase (lists.phr): `f` is a `to …:` phrase named with
+; `_` for its slots (`_ is even`, `double _`), called on each item. Each is
+; generic over the items and what `f` gives back, so a copy is made for
+; each list and phrase a program gives them; no closures, so `f` sees only
+; its own parameters.
+(fn prelude_where (forall item) ((xs (list (var item))) (f (phrase ((var item)) bool))) (list (var item))
+  (let kept (array (var item) 0))
+  (each x xs (if (call f x) (then (append kept x))))
+  (return kept))
+
+(fn prelude_where_not (forall item) ((xs (list (var item))) (f (phrase ((var item)) bool))) (list (var item))
+  (let kept (array (var item) 0))
+  (each x xs (if (not (call f x)) (then (append kept x))))
+  (return kept))
+
+(fn prelude_applied (forall item result) ((xs (list (var item))) (f (phrase ((var item)) (var result)))) (list (var result))
+  (let results (array (var result) 0))
+  (each x xs (append results (call f x)))
+  (return results))
+
+(fn prelude_call_each (forall item result) ((xs (list (var item))) (f (phrase ((var item)) (var result))))
+  (each x xs (call f x)))
+
+; The first or last item `f` is true for: an error when there is none, as
+; an item past the end is (`position of the first item … where` says 0).
+(fn prelude_first_where (forall item) ((xs (list (var item))) (f (phrase ((var item)) bool))) (var item)
+  (each x xs (if (call f x) (then (return x))))
+  (ovis_runtime_error "no item of the list is one the phrase is true for")
+  (return (get xs 0)))
+
+(fn prelude_last_where (forall item) ((xs (list (var item))) (f (phrase ((var item)) bool))) (var item)
+  (for-down i (- (len xs) 1) 0 (if (call f (get xs i)) (then (return (get xs i)))))
+  (ovis_runtime_error "no item of the list is one the phrase is true for")
+  (return (get xs 0)))
+
+; Positions count from 1; 0 when there is none.
+(fn prelude_position_where (forall item) ((xs (list (var item))) (f (phrase ((var item)) bool))) int
+  (let i 0)
+  (each x xs (set i (+ i 1)) (if (call f x) (then (return i))))
+  (return 0))
+
+(fn prelude_count_where (forall item) ((xs (list (var item))) (f (phrase ((var item)) bool))) int
+  (let n 0)
+  (each x xs (if (call f x) (then (set n (+ n 1)))))
+  (return n))
+
+(fn prelude_any_where (forall item) ((xs (list (var item))) (f (phrase ((var item)) bool))) bool
+  (each x xs (if (call f x) (then (return true))))
+  (return false))
+
+; True for an empty list, as "every item" of none is.
+(fn prelude_every_where (forall item) ((xs (list (var item))) (f (phrase ((var item)) bool))) bool
+  (each x xs (if (not (call f x)) (then (return false))))
+  (return true))
+
+; Keeps, in their order, the items `f` is true for (or false for, when
+; `keep` is false), moving them down over the others.
+(fn prelude_keep_where (forall item) ((xs (list (var item))) (f (phrase ((var item)) bool)) (keep bool))
+  (let kept 0)
+  (for i 0 (- (len xs) 1)
+    (if (= (call f (get xs i)) keep)
+      (then (put xs kept (get xs i)) (set kept (+ kept 1)))))
+  (while (> (len xs) kept) (remove-at xs (- (len xs) 1))))
+
+; A fold: `total` starts as `start` and becomes `f` of it and each item. A
+; phrase giving new text each time leaves the texts before the last to
+; the memory they were made in (a `with new memory:` around the line).
+(fn prelude_combined (forall item total) ((xs (list (var item))) (f (phrase ((var total) (var item)) (var total))) (start (var total))) (var total)
+  (let total start)
+  (each x xs (set total (call f total x)))
+  (return total))
+
+; The same, starting from the first item: an error for an empty list.
+(fn prelude_combined_items (forall item) ((xs (list (var item))) (f (phrase ((var item) (var item)) (var item)))) (var item)
+  (if (= (len xs) 0) (then (ovis_runtime_error "the list is empty, so there is nothing to combine")))
+  (let total (get xs 0))
+  (for i 1 (- (len xs) 1) (set total (call f total (get xs i))))
+  (return total))
+
+; A stable merge sort by a phrase saying whether one item comes before
+; another: items it doesn't put apart keep their order. Runs of `width`
+; are merged from one list into the other, which then swap.
+(fn prelude_sort_using (forall item) ((xs (list (var item))) (f (phrase ((var item) (var item)) bool)))
+  (let n (len xs))
+  (let other (array (var item) 0))
+  (each x xs (append other x))
+  (let source xs)
+  (let target other)
+  (let swap xs)
+  (let width 1)
+  (let start 0)
+  (let middle 0)
+  (let end 0)
+  (let i 0)
+  (let j 0)
+  (while (< width n)
+    (set start 0)
+    (while (< start n)
+      (set middle (min (+ start width) n))
+      (set end (min (+ middle width) n))
+      (set i start)
+      (set j middle)
+      (for k start (- end 1)
+        (if (and (< i middle) (or (>= j end) (not (call f (get source j) (get source i)))))
+          (then (put target k (get source i)) (set i (+ i 1)))
+          (else (put target k (get source j)) (set j (+ j 1)))))
+      (set start end))
+    (set swap source)
+    (set source target)
+    (set target swap)
+    (set width (* width 2)))
+  ; After an odd number of passes the sorted items are in the copy.
+  (if (!= (cast ptr source) (cast ptr xs))
+    (then (for k 0 (- n 1) (put xs k (get source k)))))
+  (free other))
+
+(fn prelude_sorted_using (forall item) ((xs (list (var item))) (f (phrase ((var item) (var item)) bool))) (list (var item))
+  (let copy (array (var item) 0))
+  (each x xs (append copy x))
+  (prelude_sort_using copy f)
+  (return copy))

@@ -136,12 +136,14 @@ show names, xs
 ys = a list of whole numbers
 zs = a new list of decimals
 show ys is empty, zs is empty
+show names is not empty, ys isn't empty
 -- output
 3 3 3
 20 10 30
 true false
 ["Ann", "Bo"] [5, 20, 30]
 true true
+true false
 
 == list order
 xs = [3, 1, 2]
@@ -237,9 +239,11 @@ ell false true
 s = "Hello, world"
 show s contains "world", s starts with "Hell", s ends with "x"
 show position of "o" in s, "apple" comes before "banana"
+show s is not empty, "" isn't empty
 -- output
 true true false
 5 true
+true false
 
 == text changes
 s = " Mixed Case "
@@ -626,3 +630,78 @@ show names, names at 7
 -- output
 [[200, 100, 55]] 355
 {200: "high", 7: "low"} low
+
+== phrases given phrases
+to (n: whole number) is even:
+    give back n mod 2 = 0
+to (n: whole number) is big:
+    give back n > 3
+to double (n: whole number):
+    give back n * 2
+to add (a: whole number) and (b: whole number):
+    give back a + b
+to (a: whole number) is above (b: whole number):
+    give back a > b
+to show twice (n: whole number):
+    show n, n
+numbers = [3, 8, 5, 2, 7, 4]
+evens = the items of numbers where _ is even
+odds = the items of numbers except where _ is even
+doubled = double _ applied to each item of numbers
+show evens, odds, doubled
+show the first item of numbers where _ is even, the last item of numbers where _ is even
+show the position of the first item of numbers where _ is even
+show the number of items of numbers where _ is even
+show numbers has an item where _ is even, numbers has only items where _ is even, numbers has no item where _ is even
+total = numbers combined with add _ and _ starting from 0
+show total, numbers combined with add _ and _
+ordered = numbers sorted using _ is above _
+show ordered
+call show twice _ with each item of evens
+sort numbers using _ is above _
+show numbers
+keep only the items of numbers where _ is even
+show numbers
+remove the items of numbers where _ is big
+show numbers
+-- output
+[8, 2, 4] [3, 5, 7] [6, 16, 10, 4, 14, 8]
+8 4
+2
+3
+true false false
+29 29
+[8, 7, 5, 4, 3, 2]
+8 8
+2 2
+4 4
+[8, 7, 5, 4, 3, 2]
+[8, 4, 2]
+[2]
+
+== phrases given phrases on records and text
+a book has:
+    title (text)
+    pages (whole number)
+to (b: book) is long:
+    give back pages of b > 300
+to (a: book) is shorter than (b: book):
+    give back pages of a < pages of b
+to loud title of (b: book):
+    give back title of b in capitals
+to (total: text) then (n: whole number):
+    give back total + n
+dune = a book with title "Dune", pages 412
+emma = a book with title "Emma", pages 200
+books = [dune, emma]
+long ones = the items of books where _ is long
+titles = loud title of _ applied to each item of books
+by length = books sorted using _ is shorter than _
+show long ones, titles
+show by length
+digits = [1, 2, 3] combined with _ then _ starting from ""
+show digits
+-- output
+[(a book with title "Dune", pages 412)] ["DUNE", "EMMA"]
+[(a book with title "Emma", pages 200), (a book with title "Dune", pages 412)]
+123

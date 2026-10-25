@@ -103,13 +103,14 @@ words, kind: `unclear`, `no_phrase`, `unknown_name`, `no_field`,
 fix of an unclear line is each reading offered, with `meaning`: the whole
 physical line with it put in (`describe_problem`), what `@[meaning: …]`
 would hold. `ovis check [--json]` reports without the model or writing
-(lines as read). `ovis fix` asks about each problem with words in doubt
-(a reading, a meaning written by hand, skip) and writes the taken one as
-`@[meaning: …]` above the line at its indentation (replacing one there),
-then builds again; `--line [FILE:]N --apply K | --meaning TEXT` takes one
-without asking, by the lines `check` cites. `ovis run`/`build` do the
-same as `fix` when stdin and stderr are terminals (`--no-prompt` not),
-for up to 3 rounds.
+(lines as read). Nothing asks in the terminal (the prompt was removed,
+owner, 2026-10-25: what the model couldn't settle, a menu of readings
+won't settle soundly either): unclear lines are reported, with their
+readings and phrases to try. `ovis fix` writes the `use NAME` lines that
+lines need (S2) and builds again; `fix --line [FILE:]N --apply K |
+--meaning TEXT` writes reading K (as `check --json` lists them) or the
+meaning as `@[meaning: …]` above the line at its indentation (replacing
+one there).
 
 **Phrases to try** (`closest_templates`). A report of a line no reading
 was taken for ("unclear", "no phrase reads") ends with "Phrases with these

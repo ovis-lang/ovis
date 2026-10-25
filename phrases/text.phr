@@ -19,6 +19,10 @@ expr  part of {s: str} from {a: int} to {b: int} : str   => (prelude_part $s $a 
 expr  {s: str} is empty                         : bool   => (= (strlen $s) 0)
       about: True when the text has no characters.
       example: show s is empty
+expr  {s: str} is not empty                     : bool   => (!= (strlen $s) 0)
+      about: True when the text has at least one character.
+      example: show s is not empty
+      alias: {s} isn't empty
 expr  {s: str} contains {t: str}                : bool   => (prelude_text_contains $s $t)
       about: True when the second text is somewhere in the first.
       example: show s contains "world"

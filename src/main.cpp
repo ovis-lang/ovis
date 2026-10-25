@@ -62,9 +62,10 @@ Commands:
   ir         print the generated LLVM IR
   check      report problems without building, asking the model or
              writing any file (--json: as JSON, for editors)
-  fix        offer the readings of each unclear line; the one taken is
-             written above it as @[meaning: …] (--line [FILE:]N with
-             --apply K, or --meaning TEXT, takes one without asking)
+  fix        write the `use NAME` lines unclear lines need, then report
+             the rest; --line [FILE:]N with --apply K (a reading of
+             check --json) or --meaning TEXT writes it above the line as
+             @[meaning: …]
   fmt        put the @[…] lines in order, and turn old Read as: and
              Compiler: lines into them; builds nothing (--check: only
              say which files would change)
@@ -126,7 +127,6 @@ Options:
   --offline           never ask the model; unclear lines are reported
   --model-budget <s>  seconds the model may spend on questions (default: 10)
   --keep-source       don't write `@[meaning: …]` lines into the source
-  --no-prompt         don't offer fixes when a build in a terminal fails
   --quiet             don't print progress
 
 Checking the program as it runs:
@@ -211,7 +211,6 @@ struct arguments {
   bool dependencies = false;
   // `cmake --print`.
   bool print = false;
-  bool prompt = true;
   std::string fix_line;
   // `manual --in FILE`: the phrases in sight of this program.
   std::filesystem::path manual_in;
@@ -467,8 +466,6 @@ auto parse_arguments(int p_count, char **p_values) -> arguments {
         if (!target.empty())
           result.targets.push_back(target);
     }
-    else if (option == "--no-prompt")
-      result.prompt = false;
     else if (option == "--in")
       result.manual_in = value();
     else if (option == "--line")
@@ -1402,62 +1399,6 @@ auto is_fixable(const ovis::phrase::diagnostic &p_problem) -> bool {
          p_problem.kind != "needs_use" && p_problem.kind != "internal";
 }
 
-// Where a problem is, as reports name it.
-auto where_of(const std::vector<ovis::phrase::phrase_file> &p_files,
-              const std::filesystem::path &p_program,
-              const ovis::phrase::diagnostic &p_problem) -> std::string {
-  const auto &file = p_files[p_problem.file];
-  return (file.name.empty() ? p_program.string() : file.name) + ", line " +
-         std::to_string(p_problem.line);
-}
-
-// Asks about each unclear line which reading it has; the ones taken.
-auto ask_fixes(const std::vector<ovis::phrase::phrase_file> &p_files,
-               const std::filesystem::path &p_program,
-               const ovis::phrase::program_result &p_result)
-    -> std::vector<taken_fix> {
-  std::vector<taken_fix> taken;
-  for (const auto &problem : p_result.diagnostics) {
-    if (!is_fixable(problem))
-      continue;
-    const auto lines = lines_of(p_result.sources[problem.file]);
-    const auto &written = lines.at(problem.line - 1);
-    const auto first = written.find_first_not_of(' ');
-    std::cerr << "\n" << where_of(p_files, p_program, problem) << ": "
-              << written.substr(first == std::string::npos ? 0 : first) << "\n"
-              << "What does \"" << problem.span << "\" mean here?\n";
-    std::size_t option = 0;
-    for (const auto &fix : problem.fixes)
-      std::cerr << "  " << ++option << ". " << fix.reading << "\n";
-    std::cerr << "  " << ++option << ". write what the line means\n"
-              << "  " << ++option << ". skip\n";
-    // Asked again until the answer is one of the options.
-    std::size_t chosen = 0;
-    std::string answer;
-    while (chosen < 1 || chosen > option) {
-      std::cerr << "Choose 1-" << option << " (q to stop): " << std::flush;
-      if (!std::getline(std::cin, answer) || answer == "q")
-        return taken;
-      try {
-        chosen = std::stoul(answer);
-      } catch (const std::exception &) {
-        chosen = 0;
-      }
-    }
-    if (chosen >= 1 && chosen <= problem.fixes.size()) {
-      taken.push_back(
-          {problem.file, problem.line, problem.fixes[chosen - 1].meaning});
-    } else if (chosen == problem.fixes.size() + 1) {
-      std::cerr << "The line as Ovis should read it: " << std::flush;
-      std::string meaning;
-      if (std::getline(std::cin, meaning) &&
-          meaning.find_first_not_of(' ') != std::string::npos)
-        taken.push_back({problem.file, problem.line, meaning});
-    }
-  }
-  return taken;
-}
-
 // The fix `fix --line [FILE:]N` names: `--meaning`, or reading `--apply`.
 auto argument_fix(const arguments &p_arguments,
                   const std::vector<ovis::phrase::phrase_file> &p_files,
@@ -1545,9 +1486,9 @@ auto diagnostics_json(const std::vector<ovis::phrase::phrase_file> &p_files,
 }
 
 // Reads the program, settling unclear lines, and runs, builds or prints it,
-// with where the time went. A failed build in a terminal offers the
-// readings of its unclear lines, then builds again; `fix` does that on
-// purpose, and `check` only reports.
+// with where the time went. Unclear lines are reported, never asked about
+// in the terminal: what the model couldn't settle the author writes as
+// `@[meaning: …]` (`fix --line` takes a reading `check --json` lists).
 // A Make-style dependency file: the object (or executable) built, after the
 // files that went into it, so CMake runs the build again when one changes.
 auto write_depfile(const arguments &p_arguments,
@@ -1694,9 +1635,6 @@ auto run_program_command(const arguments &p_arguments,
   const auto model = checking || locked
                          ? nullptr
                          : make_model(p_arguments, p_argument_zero);
-  const bool offers = (fixing && p_arguments.fix_line.empty()) ||
-                      (p_arguments.prompt && (command == "run" || command == "build") &&
-                       is_interactive());
   // `fix --line`, from an editor: the line as `check` cited it, in the file
   // as it is, with no model and nothing else written.
   if (fixing && !p_arguments.fix_line.empty()) {
@@ -1827,27 +1765,10 @@ auto run_program_command(const arguments &p_arguments,
       // Problems name the file only in a program of several.
       const auto single =
           files[0].name.empty() ? program_path.string() + ", " : std::string();
-      const bool asks = offers && round < 3 &&
-                        std::ranges::any_of(result.diagnostics, is_fixable);
-      // A problem the questions below cover isn't reported twice.
-      for (std::size_t index = 0; index < result.problems.size(); ++index)
-        if (!asks || !is_fixable(result.diagnostics[index]))
-          std::cerr << single << result.problems[index] << '\n';
+      for (const auto &problem : result.problems)
+        std::cerr << single << problem << '\n';
       std::cerr << two_copies_note(p_arguments.packages);
-      std::vector<taken_fix> taken;
-      if (asks)
-        taken = ask_fixes(files, program_path, result);
-      if (taken.empty()) {
-        // Nothing taken: what was asked about is reported after all.
-        if (asks)
-          for (std::size_t index = 0; index < result.problems.size(); ++index)
-            if (is_fixable(result.diagnostics[index]))
-              std::cerr << single << result.problems[index] << '\n';
-        return 1;
-      }
-      // The lines are the file's as written: with this build's sigils.
-      write_fixes(files, result.sources, std::move(taken));
-      continue;
+      return 1;
     }
     if (fixing) {
       std::cerr << "ovis: every line reads.\n";

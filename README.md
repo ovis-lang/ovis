@@ -143,7 +143,7 @@ show "Found", length of primes, "primes"
   a loop or go to its next pass.
 - **Operators:** `+ - * / mod = != < > <= >= and or not` work as in
   Python.
-- **Phrases:** the library has 171 built-in phrases, such as `average of
+- **Phrases:** the library has 190 built-in phrases, such as `average of
   numbers`, `add x to list`, `text in capitals` and `x rounded to 2
   decimals`. Each is a template with typed slots. Articles are optional,
   and singular and plural match. `ovis phrases round decimals` lists the
@@ -167,6 +167,30 @@ result.
   pick the name yourself.
 - `name(arguments)` calls your phrases and C functions.
 - Variables set in a phrase belong to it.
+- A phrase is a value when its slots are written `_`: `compare _ and _`,
+  or `the phrase say goodbye` for one without slots. The list phrases take
+  one (filter, map, find, reduce):
+
+```text
+to (n: whole number) is even:
+    give back n mod 2 = 0
+to double (n: whole number):
+    give back n * 2
+to add (a: whole number) and (b: whole number):
+    give back a + b
+to (a: whole number) is above (b: whole number):
+    give back a > b
+evens = the items of numbers where _ is even
+doubled = double _ applied to each item of numbers
+show the first item of numbers where _ is even
+show numbers has an item where _ is even, numbers has only items where _ is even
+total = numbers combined with add _ and _ starting from 0
+ordered = numbers sorted using _ is above _
+remove the items of numbers where _ is even
+```
+
+  The phrase sees only its own parameters (no closures), so `_ is above 3`
+  is not a value: write `to (n) is big:`.
 
 ### Records
 
@@ -402,8 +426,9 @@ ovis build <file or folder>   compile to an executable (-o to name it)
 ovis ir    <file or folder>   print the LLVM IR
 ovis check <file or folder>   report problems; build nothing, write nothing
                               (--json for editors)
-ovis fix   <file or folder>   choose what each unclear line means; written
-                              above it as @[meaning: …]
+ovis fix   <file or folder>   write the `use NAME` lines unclear lines need;
+                              --line N --apply K | --meaning TEXT writes
+                              what a line means above it as @[meaning: …]
 ovis fmt   <file or folder>   put the @[…] lines in order (--check for CI)
 ovis phrases [words…]         the built-in phrases with these words
 ovis manual [words…]          the phrases a question is about, with what
@@ -436,8 +461,6 @@ Common options:
 --offline            never ask the model; unclear lines are reported
 --model-budget <s>   seconds the model may spend on questions (default 10)
 --keep-source        don't write @[meaning: …] lines into the source
---no-prompt          in a terminal, report unclear lines instead of
-                     offering their readings
 -I <dir>, -L <dir>   where C headers and libraries are
 --fast, --report-leaks, --lax-memory     memory checks (see Memory)
 --cpu, --threads <n>, --model-path <gguf>, --endpoint <url>

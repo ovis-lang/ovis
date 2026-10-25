@@ -62,6 +62,23 @@ architecture-spec §5–§6 and [proposals/defer.md](proposals/defer.md).
 
 ## P2: language features
 
+### Phrases given a phrase (higher-order)
+
+Done: filter, map, find, count, any/all/none, reduce, sort using, on each,
+keep/remove where (state.md history, architecture-spec §4). Left:
+
+- [ ] Partial application or closures (`the items of xs where _ is above
+  limit`): today the phrase sees only its parameters, so a bound needs a
+  phrase of its own. Decide with the owner (references.md §7, option B
+  was turned down for C callbacks; an Ovis-only closure record could do).
+- [ ] Library phrases as values (`_ in capitals`, `_ squared`): only a
+  program's own `to …:` phrases are named with `_` now.
+- [ ] Map's result is `any[]` to the parser: give a phrase value its
+  signature in `value_kind::exact`, so `length of (double _ applied to
+  each item of xs)` type-checks there and readings are filtered by it.
+- [ ] Measure questions on lines with these phrases (`eval/programs`): a
+  `{f: ptr}` slot takes any pointer, so the filter keeps more readings.
+
 ### Sized numbers and bits
 
 Done (N1–N7, decisions B1–B7): state.md history and

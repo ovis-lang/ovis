@@ -47,6 +47,19 @@ TEST_CASE("A value lost on every pass of a loop is an error.", "[memory][strict]
                           "    label = \"item \" + count\n"
                           "    count = count + 1\n"
                           "show count\n").empty());
+  // `at the end` in the loop's body runs at the end of every pass, before
+  // the next pass gives the variable a new value.
+  REQUIRE(strict_problems("count = 0\n"
+                          "while count < 5:\n"
+                          "    words = \"a b\" split by \" \"\n"
+                          "    at the end, free words\n"
+                          "    kept = new list of text\n"
+                          "    at the end:\n"
+                          "        free kept\n"
+                          "    for each word in words:\n"
+                          "        add word to kept\n"
+                          "    count = count + 1\n"
+                          "show count\n").empty());
   // Without the strict rules the program builds as it always did.
   const auto lenient = ovis::phrase::compile_phrases(
       "count = 0\nwhile count < 5:\n    label = \"item \" + count\n"
