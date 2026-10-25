@@ -71,8 +71,14 @@ keep/remove where (state.md history, architecture-spec §4). Left:
   limit`): today the phrase sees only its parameters, so a bound needs a
   phrase of its own. Decide with the owner (references.md §7, option B
   was turned down for C callbacks; an Ovis-only closure record could do).
-- [ ] Library phrases as values (`_ in capitals`, `_ squared`): only a
-  program's own `to …:` phrases are named with `_` now.
+- [x] Library phrases and operators written in place with `_` where the
+  phrase comes after its list (`the items of xs where _ is not empty`,
+  `_ * 2 is below 10`): a Core `lambda`, hoisted to a function.
+- [ ] The same where the phrase comes before its list (`_ squared applied
+  to each item of xs`, `call show _ with each item of xs`): the item's
+  type isn't known when the phrase's words are read.
+- [ ] A phrase written in place given alone (`f = _ is not empty`): no
+  list says its parameter's type.
 - [ ] Map's result is `any[]` to the parser: give a phrase value its
   signature in `value_kind::exact`, so `length of (double _ applied to
   each item of xs)` type-checks there and readings are filtered by it.

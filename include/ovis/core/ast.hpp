@@ -521,8 +521,13 @@ auto c_number_type(string_view_type p_name) -> std::optional<c_type>;
 auto core_keywords() -> std::vector<string_view_type>;
 
 // Turns the S-expressions of one paragraph into a unit. Throws `error`.
-auto parse_unit(const std::vector<sexpr> &p_forms) -> unit;
-auto parse_unit(string_view_type p_text) -> unit;
+// A `(lambda (PARAMETER...) [RESULT] BODY...)` in it becomes a function of
+// the unit named `p_lambda_prefix` and a number, given as `(phrase-of
+// NAME)`: units that have one need prefixes no other unit has.
+auto parse_unit(const std::vector<sexpr> &p_forms,
+                string_view_type p_lambda_prefix = "lambda_") -> unit;
+auto parse_unit(string_view_type p_text,
+                string_view_type p_lambda_prefix = "lambda_") -> unit;
 
 } // namespace ovis::core
 

@@ -1045,6 +1045,24 @@ private:
                  " divided by " + divisor + ") rounded down.";
       }
     }
+    // `the items of xs where _ is above limit`: a phrase written with `_`
+    // after its list sees only its `_`s, as there are no closures.
+    const auto is_named = [&](const token &p_token, bool p_list) {
+      const auto found = scope.find(p_token.text);
+      return p_token.kind == token::kind_type::word && found != scope.end() &&
+             (found->second.depth > 0) == p_list;
+    };
+    const auto blank = std::ranges::find_if(
+        p_line.tokens, [](const token &p_token) { return p_token.is_word("_"); });
+    if (std::any_of(p_line.tokens.begin(), blank,
+                    [&](const token &p_token) { return is_named(p_token, true); }))
+      for (auto at = blank; at != p_line.tokens.end(); ++at)
+        if (is_named(*at, false))
+          return "\"" + span_text(p_line, p_shape.begin, p_shape.end) +
+                 "\" uses '" + at->text + "' in a phrase written with _, which "
+                 "sees only its _s (a phrase given as a value can't use the "
+                 "line's names yet). Write the value in it, or use a 'for "
+                 "each' loop.";
     auto assuming = words;
     assuming.assume_record_traits = true;
     line_parser parser(p_line.tokens, scope, assuming, false);
@@ -3868,7 +3886,11 @@ auto compile_phrase_program(const std::vector<phrase_file> &p_files,
           dump != nullptr && *dump != '\0')
         std::cerr << ";; line " << line << "\n" << text << "\n";
       try {
-        result.program.units.push_back(core::parse_unit(text));
+        // A phrase written in a line (`_ is not empty`) is a function named
+        // for the file and line it is in.
+        result.program.units.push_back(core::parse_unit(
+            text, "ovis_lambda_" + std::to_string(index) + "_" +
+                      std::to_string(line) + "_"));
         result.program.units.back().module = p_files[index].module;
         origins.push_back({index, source_lines(text, line)});
         // For runtime errors: each Core line's line in the file as written.
